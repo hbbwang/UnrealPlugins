@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "HbbEditorPlugins",
+	"Description": "",
+	"Category": "Other",
+	"CreatedBy": "HbbWang",
+	"CreatedByURL": "https://github.com/SCcDaniel/UnrealPlugins",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": false,
+	"IsBetaVersion": true,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "HbbEditorPlugins",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
+		}
+	]
+}
