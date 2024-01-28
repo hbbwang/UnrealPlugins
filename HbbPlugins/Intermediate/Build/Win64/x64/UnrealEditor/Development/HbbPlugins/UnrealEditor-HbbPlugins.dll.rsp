@@ -46,7 +46,7 @@
 "..\Intermediate\Build\Win64\x64\UnrealEditor\Development\Engine\UnrealEditor-Engine.lib"
 "..\Intermediate\Build\Win64\x64\UnrealEditor\Development\Slate\UnrealEditor-Slate.lib"
 "..\Intermediate\Build\Win64\x64\UnrealEditor\Development\SlateCore\UnrealEditor-SlateCore.lib"
-"F:\Unreal\TechnologyTest\Plugins\AssetSearchTool\Intermediate\Build\Win64\x64\UnrealEditor\Development\AssetSearchTool\UnrealEditor-AssetSearchTool.lib"
+"F:\Unreal\TechnologyTest\Plugins\HbbPlugins\Intermediate\Build\Win64\x64\UnrealEditor\Development\AssetSearchTool\UnrealEditor-AssetSearchTool.lib"
 "..\Intermediate\Build\Win64\x64\UnrealEditor\Development\Core\UnrealEditor-Core.lib"
 "delayimp.lib"
 "wininet.lib"
