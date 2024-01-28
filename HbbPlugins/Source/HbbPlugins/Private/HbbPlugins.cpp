@@ -34,11 +34,11 @@ void FHbbPluginsModule::ShutdownModule()
 	FHbbPluginsStyle::Shutdown();
 }
 
-void FHbbPluginsModule::AddButton(FText ButtonName, FOnClicked onClickedFunc)
+void FHbbPluginsModule::AddButton(FText ButtonName, FOnClicked onClickedFunc ,FText toolTip) 
 {
 	auto button =
-		SNew(SButton).Text(
-		LOCTEXT("AssetSearchToolButtonName", "Asset Search Tool"))
+		SNew(SButton).Text(ButtonName)
+		.ToolTipText(toolTip)
 		.OnClicked_Lambda([this]()
 		{
 			FAssetSearchToolModule& Module = FModuleManager::LoadModuleChecked<FAssetSearchToolModule>("AssetSearchTool");
@@ -71,7 +71,8 @@ void FHbbPluginsModule::RegisterMenus()
 								FAssetSearchToolModule& Module = FModuleManager::LoadModuleChecked<FAssetSearchToolModule>("AssetSearchTool");
 								Module.ShowToolWindow();
 								return FReply::Handled(); 
-							})
+							}),
+							FText::FromString(TEXT("资产检索工具"))
 						);
 						
 						return vBox.ToSharedRef();

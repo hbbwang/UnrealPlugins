@@ -18,7 +18,7 @@ public:
 	
 private:
 
-	void AddButton(FText ButtonName, FOnClicked onClickedFunc);
+	void AddButton(FText ButtonName, FOnClicked onClickedFunc,FText toolTip = FText::GetEmpty());
 	
 	TSharedPtr<SVerticalBox> vBox;
 	
