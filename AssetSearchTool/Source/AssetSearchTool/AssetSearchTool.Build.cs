@@ -52,7 +52,7 @@ public class AssetSearchTool : ModuleRules
 				"EditorWidgets",
 				"DesktopPlatform",
 				"EditorStyle",
-				"ContentBrowserAssetDataSource"
+				"ContentBrowserAssetDataSource", "LevelSnapshots","ContentBrowserData"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

@@ -158,7 +158,7 @@ private:
 
 	bool Tick(float DeltaTime);
 
-	FDelegateHandle TickDelegateHandle;
+	FTSTicker::FDelegateHandle TickDelegateHandle;
 	
 	float RefSearchProgress = 0;
 	

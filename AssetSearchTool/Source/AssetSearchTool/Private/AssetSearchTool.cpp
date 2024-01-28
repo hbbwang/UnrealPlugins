@@ -5,46 +5,35 @@
 #include "AssetToolsModule.h"
 #include "ContentBrowserModule.h"
 #include "DesktopPlatformModule.h"
-#include "DetailCategoryBuilder.h"
 #include "EditorAssetLibrary.h"
 #include "LevelEditor.h"
-#include "ObjectHyperlinkColumnInitializationOptions.h"
 #include "ObjectTools.h"
-#include "Widgets/Docking/SDockTab.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Input/SComboBox.h"
-#include "EditorWidgets/Public/SAssetDropTarget.h"
+#include "Editor/EditorWidgets/Public/SAssetDropTarget.h"
 #include "ToolMenus.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Materials/MaterialInstance.h"
 #include "Materials/MaterialInstanceConstant.h"
 #include "Particles/ParticleSystem.h"
 #include "IAssetTools.h"
-#include "IDetailCustomization.h"
-#include "IMaterialEditor.h"
-#include "MaterialEditorModule.h"
 #include "MaterialEditorUtilities.h"
 #include "MaterialPropertyHelpers.h"
 #include "Engine/Texture2DArray.h"
 #include "Engine/TextureCube.h"
-#include "Engine/Private/Materials/MaterialInstanceSupport.h"
-#include "Factories/MaterialFunctionInstanceFactory.h"
 #include "MaterialEditor/DEditorScalarParameterValue.h"
 #include "MaterialEditor/DEditorStaticComponentMaskParameterValue.h"
 #include "MaterialEditor/DEditorStaticSwitchParameterValue.h"
 #include "MaterialEditor/DEditorTextureParameterValue.h"
 #include "MaterialEditor/DEditorVectorParameterValue.h"
-#include "MaterialEditor/Private/SMaterialLayersFunctionsTree.h"
-#include "MaterialEditor/Public/MaterialEditorUtilities.h"
-#include "Toolkits/AssetEditorManager.h"
 #include "Widgets/Layout/SScrollBox.h"
 #include "DetailWidgetRow.h"
 #include "Async/Async.h"
 #include "Misc/FileHelper.h"
 #include "Widgets/Notifications/SProgressBar.h"
 #include "EngineUtils.h"
-#include "Widgets/Layout/SGridPanel.h"
+#include "IContentBrowserSingleton.h"
 #include "Widgets/Text/SMultiLineEditableText.h"
 static const FName AssetSearchToolTabName("AssetSearchTool");
 
@@ -59,7 +48,7 @@ TArray<FAssetSearchToolMaterialInstanceResult> FAssetSearchToolModule::MaterialI
 void FAssetSearchToolModule::StartupModule()
 {
 	FTickerDelegate TickDelegate = FTickerDelegate::CreateRaw(this,&FAssetSearchToolModule::Tick);
-	TickDelegateHandle = FTicker::GetCoreTicker().AddTicker(TickDelegate);
+	TickDelegateHandle = FTSTicker::GetCoreTicker().AddTicker(TickDelegate);
 	//
 	// FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
 	// TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
@@ -70,7 +59,7 @@ void FAssetSearchToolModule::StartupModule()
 
 void FAssetSearchToolModule::ShutdownModule()
 {
-	FTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
+	FTSTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
 	for(auto& i : AllCustomResultTables)
 	{
 		i.Value.Reset();
@@ -218,7 +207,8 @@ void FAssetSearchToolModule::ShowToolWindow()
 				AssetPackage->ConditionalBeginDestroy();
 
 				FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
-				ContentBrowserModule.Get().SyncBrowserToFolders({ContentBrowserModule.Get().GetCurrentPath()},true);
+				TArray<FString> pathArray = {ContentBrowserModule.Get().GetCurrentPath().GetInternalPathString()};
+				ContentBrowserModule.Get().SyncBrowserToFolders(pathArray,true);
 				
 				// 输出删除成功的消息
 				UE_LOG(LogTemp, Log, TEXT("Asset deleted successfully."));
@@ -2112,7 +2102,7 @@ void FAssetSearchToolModule::SetMaterialInstanceParent(TArray<FAssetSearchToolMa
 								v.G = mask_swi->ParameterValue.G > 0 ? true : false;
 								v.B = mask_swi->ParameterValue.B > 0 ? true : false;
 								v.A = mask_swi->ParameterValue.A > 0 ? true : false;
-								staticParameters.StaticComponentMaskParameters.Add(v);
+								staticParameters.EditorOnly.StaticComponentMaskParameters.Add(v);
 							}
 						}
 					}
