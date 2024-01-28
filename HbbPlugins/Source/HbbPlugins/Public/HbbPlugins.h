@@ -17,5 +17,10 @@ public:
 	virtual void ShutdownModule() override;
 	
 private:
+
+	void AddButton(FText ButtonName, FOnClicked onClickedFunc);
+	
+	TSharedPtr<SVerticalBox> vBox;
+	
 	void RegisterMenus();
 };

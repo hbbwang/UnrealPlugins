@@ -34,6 +34,20 @@ void FHbbPluginsModule::ShutdownModule()
 	FHbbPluginsStyle::Shutdown();
 }
 
+void FHbbPluginsModule::AddButton(FText ButtonName, FOnClicked onClickedFunc)
+{
+	auto button =
+		SNew(SButton).Text(
+		LOCTEXT("AssetSearchToolButtonName", "Asset Search Tool"))
+		.OnClicked_Lambda([this]()
+		{
+			FAssetSearchToolModule& Module = FModuleManager::LoadModuleChecked<FAssetSearchToolModule>("AssetSearchTool");
+			Module.ShowToolWindow();
+			return FReply::Handled(); 
+		});
+	vBox->AddSlot().AutoHeight().AttachWidget(button);
+}
+
 void FHbbPluginsModule::RegisterMenus()
 {
 	// Owner will be used for cleanup in call to UToolMenus::UnregisterOwner
@@ -48,20 +62,19 @@ void FHbbPluginsModule::RegisterMenus()
 					FUIAction(),
 					FOnGetContent::CreateLambda([this]()
 					{
-						auto vBox = SNew(SVerticalBox);
+						SAssignNew(vBox , SVerticalBox);
 						
-						auto button =
-							SNew(SButton).Text(
-							LOCTEXT("AssetSearchToolButtonName", "Asset Search Tool"))
-							.OnClicked_Lambda([this]()
+						//Asset Search Tool
+						AddButton(LOCTEXT("AssetSearchToolButtonName", "Asset Search Tool") , FOnClicked::CreateLambda(
+			[this]()
 							{
 								FAssetSearchToolModule& Module = FModuleManager::LoadModuleChecked<FAssetSearchToolModule>("AssetSearchTool");
 								Module.ShowToolWindow();
 								return FReply::Handled(); 
-							});
-						vBox->AddSlot().AutoHeight().AttachWidget(button);
+							})
+						);
 						
-						return vBox;
+						return vBox.ToSharedRef();
 					}),
 					LOCTEXT("HbbPluginsLabel", "Hbb Plugins"),
 					LOCTEXT("HbbPluginsToolTip", "Hbb unreal engine editor tools."),
