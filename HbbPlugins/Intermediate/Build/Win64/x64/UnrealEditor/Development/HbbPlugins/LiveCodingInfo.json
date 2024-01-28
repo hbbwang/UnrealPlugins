@@ -1,0 +1,9 @@
+{
+	"RemapUnityFiles": 
+	{
+		"Module.HbbPlugins.cpp.obj": [
+			"HbbPlugins.cpp.obj",
+			"HbbPluginsStyle.cpp.obj"
+		]
+	}
+}

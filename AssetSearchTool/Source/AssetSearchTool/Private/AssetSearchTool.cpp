@@ -52,10 +52,39 @@ void FAssetSearchToolModule::StartupModule()
 	//
 	// FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
 	// TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
-	// ToolbarExtender->AddToolBarExtension("Compile", EExtensionHook::After, nullptr,
-	// 	FToolBarExtensionDelegate::CreateRaw(this, &FAssetSearchToolModule::AddMaterialAssetUsageToolbarButton));
+	// ToolbarExtender->AddToolBarExtension("Hbb Plugins", EExtensionHook::After, nullptr,
+	// 	FToolBarExtensionDelegate::CreateRaw(this, &FAssetSearchToolModule::AddToolbarExtension));
 	// LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(ToolbarExtender);
 }
+//
+// void FAssetSearchToolModule::AddToolbarExtension(FToolBarBuilder& Builder)
+// {
+// 	// Builder.BeginSection("Build");
+// 	// Builder.AddToolBarButton(
+// 	// 	FUIAction(
+// 	// 		FExecuteAction::CreateLambda([this]()
+// 	// 		{
+// 	// 			
+// 	// 		})
+// 	// 	),
+// 	// 	NAME_None,
+// 	// 	FText::FromString(TEXT("A")),
+// 	// 	FText::FromString(TEXT("Builds the database from all the animation sequences that reference this database through their codec.")),
+// 	// 	FSlateIcon(FAppStyle::GetAppStyleSetName(), "Persona.ApplyCompression")
+// 	// );
+// 	// Builder.EndSection();
+// 	//
+// 	// Builder.AddComboButton(
+// 	// 	FUIAction(),
+// 	// 	FOnGetContent::CreateLambda([this]()
+// 	// 	{
+// 	// 		
+// 	// 	}),
+// 	// 	LOCTEXT("", "Compile Options"),
+// 	// 	LOCTEXT("Compile_Options_Tooltip", "Change Compile Options"),
+// 	// 	TAttribute<FSlateIcon>(),
+// 	// 	true);
+// }
 
 void FAssetSearchToolModule::ShutdownModule()
 {

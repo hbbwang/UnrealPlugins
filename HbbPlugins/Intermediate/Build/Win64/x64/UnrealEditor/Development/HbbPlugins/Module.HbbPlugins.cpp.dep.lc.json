@@ -1,0 +1,29 @@
+{
+    "Version": "1.2",
+    "Data": {
+        "Source": "f:\\unreal\\technologytest\\plugins\\hbbplugins\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\hbbplugins\\module.hbbplugins.cpp",
+        "ProvidedModule": "",
+        "PCH": "f:\\unreal\\unrealengine\\unrealengine5\\engine\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\unrealed\\sharedpch.unrealed.cpp20.h.pch",
+        "Includes": [
+            "f:\\unreal\\technologytest\\plugins\\hbbplugins\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\hbbplugins\\definitions.hbbplugins.h",
+            "f:\\unreal\\technologytest\\plugins\\hbbplugins\\source\\hbbplugins\\private\\hbbplugins.cpp",
+            "f:\\unreal\\technologytest\\plugins\\hbbplugins\\source\\hbbplugins\\public\\hbbplugins.h",
+            "f:\\unreal\\technologytest\\plugins\\hbbplugins\\source\\hbbplugins\\public\\hbbpluginsstyle.h",
+            "f:\\unreal\\technologytest\\plugins\\hbbplugins\\source\\hbbplugins\\public\\hbbpluginscommands.h",
+            "f:\\unreal\\technologytest\\plugins\\hbbplugins\\source\\hbbplugins\\private\\hbbpluginscommands.cpp",
+            "f:\\unreal\\technologytest\\plugins\\hbbplugins\\source\\hbbplugins\\private\\hbbpluginsstyle.cpp",
+            "f:\\unreal\\unrealengine\\unrealengine5\\engine\\source\\runtime\\slatecore\\public\\styling\\slatestyleregistry.h",
+            "f:\\unreal\\unrealengine\\unrealengine5\\engine\\source\\runtime\\engine\\public\\slate\\slategameresources.h",
+            "f:\\unreal\\unrealengine\\unrealengine5\\engine\\source\\runtime\\projects\\public\\interfaces\\ipluginmanager.h",
+            "f:\\unreal\\unrealengine\\unrealengine5\\engine\\source\\runtime\\projects\\public\\plugindescriptor.h",
+            "f:\\unreal\\unrealengine\\unrealengine5\\engine\\source\\runtime\\projects\\public\\custombuildsteps.h",
+            "f:\\unreal\\unrealengine\\unrealengine5\\engine\\source\\runtime\\projects\\public\\localizationdescriptor.h",
+            "f:\\unreal\\unrealengine\\unrealengine5\\engine\\source\\runtime\\projects\\public\\moduledescriptor.h",
+            "f:\\unreal\\unrealengine\\unrealengine5\\engine\\source\\runtime\\projects\\public\\pluginreferencedescriptor.h",
+            "f:\\unreal\\unrealengine\\unrealengine5\\engine\\source\\runtime\\projects\\public\\versescope.h",
+            "f:\\unreal\\unrealengine\\unrealengine5\\engine\\source\\runtime\\slatecore\\public\\styling\\slatestylemacros.h"
+        ],
+        "ImportedModules": [],
+        "ImportedHeaderUnits": []
+    }
+}

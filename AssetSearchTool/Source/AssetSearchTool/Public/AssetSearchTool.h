@@ -153,6 +153,8 @@ public:
 	TArray<FAssetSearchToolResult> SearchAllReference(int& refType ,const FAssetData& asset ,UClass* endType, int referenceLevel , bool bSearchAllReferenceLevel = false, bool bMatSearch = false);
 	
 private:
+
+	//void AddToolbarExtension(FToolBarBuilder& Builder);
 	
 	TArray<FAssetSearchToolResult> RefSearchResults;
 
