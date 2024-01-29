@@ -1,9 +1,0 @@
-{
-	"RemapUnityFiles": 
-	{
-		"Module.HbbEditorPlugins.cpp.obj": [
-			"HbbEditorPlugins.cpp.obj",
-			"HbbEditorPluginsStyle.cpp.obj"
-		]
-	}
-}

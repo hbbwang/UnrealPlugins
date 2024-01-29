@@ -13,6 +13,7 @@
 #include "Misc/MessageDialog.h"
 #include "ToolMenus.h"
 #include "Editor/LevelEditor/Private/SLevelEditor.h"
+#include "Engine/TextureCube.h"
 
 static const FName HbbEditorPluginsTabName("HbbEditorPlugins");
 
@@ -94,11 +95,6 @@ void FHbbEditorPluginsModule::RegisterMenus()
 					FSlateIcon(FHbbEditorPluginsStyle::Get().GetStyleSetName(), "HbbEditorPlugins.PluginAction")
 				);
 				Section.AddEntry(AddContentEntry);
-
-				// UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("ContentBrowser.AssetContextMenu");
-				// FToolMenuSection& HbbPluginsSection =
-				// 	Menu->AddSection("HbbPlugins", LOCTEXT("HbbPluginsSection", "Hbb Plugins"));
-				// HbbPluginsSection.AddEntry(AddContentEntry);
 			}
 		}
 	}
@@ -113,14 +109,14 @@ void FHbbEditorPluginsModule::RegisterMenus()
 			TSharedPtr<FExtender> MenuExtender = MakeShareable(new FExtender());
 			//在资产目录菜单组扩展菜单
 			MenuExtender->AddMenuExtension(
-"GetAssetActions",
-EExtensionHook::After,
-nullptr,FMenuExtensionDelegate::CreateLambda([](FMenuBuilder& MenuBuilder)
+			"GetAssetActions",
+			EExtensionHook::After,
+			nullptr,FMenuExtensionDelegate::CreateLambda([](FMenuBuilder& MenuBuilder)
 			{
 				//添加菜单
 				MenuBuilder.AddMenuEntry(
 				FText::FromString(TEXT("批量导出(默认格式)")),
-				FText::FromString(TEXT("")),
+				FText::FromString(TEXT("只支持Texture、StaticMesh、SkeletalMesh")),
 				FSlateIcon(),
 				//添加该菜单的点击回调事件
 				FUIAction(FExecuteAction::CreateLambda([&]()
@@ -137,6 +133,12 @@ nullptr,FMenuExtensionDelegate::CreateLambda([](FMenuBuilder& MenuBuilder)
 					assetName.Reserve(assets.Num());
 					for(auto& p: assets)
 					{
+						if(!p.AssetClass.IsEqual(UTexture2D::StaticClass()->GetFName())
+							&& !p.AssetClass.IsEqual(UTextureCube::StaticClass()->GetFName())
+							&& !p.AssetClass.IsEqual(UStaticMesh::StaticClass()->GetFName())
+							&& !p.AssetClass.IsEqual(USkeletalMesh::StaticClass()->GetFName())
+							&& !p.AssetClass.IsEqual(USkeleton::StaticClass()->GetFName())
+							)
 						assetPaths.Add(p.ObjectPath.ToString());
 						assetName.Add(p.AssetName.ToString());
 						assetPackagePaths.Add(p.PackagePath.ToString());
