@@ -1,4 +1,5 @@
 #Binaries/
 *.pdb
 Intermediate
-/HbbEditorPlugins/Intermediate
+HbbEditorPlugins/Intermediate
+HbbRuntimePlugins/Intermediate
