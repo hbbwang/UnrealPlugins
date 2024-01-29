@@ -2,18 +2,23 @@
 
 #include "HbbEditorPlugins.h"
 
+#include "AssetExportTask.h"
 #include "AssetSearchTool.h"
 #include "AssetToolsModule.h"
+#include "BusyCursor.h"
 #include "ContentBrowserModule.h"
 #include "DesktopPlatformModule.h"
 #include "EditorDirectories.h"
 #include "HbbEditorPluginsStyle.h"
 #include "IContentBrowserSingleton.h"
 #include "LevelEditor.h"
+#include "ObjectTools.h"
 #include "Misc/MessageDialog.h"
 #include "ToolMenus.h"
 #include "Editor/LevelEditor/Private/SLevelEditor.h"
 #include "Engine/TextureCube.h"
+#include "Exporters/Exporter.h"
+#include "UObject/GCObjectScopeGuard.h"
 
 static const FName HbbEditorPluginsTabName("HbbEditorPlugins");
 
@@ -52,14 +57,171 @@ void FHbbEditorPluginsModule::AddButton(FText ButtonName, FOnClicked onClickedFu
 	auto button =
 		SNew(SButton).Text(ButtonName)
 		.ToolTipText(toolTip)
-		.OnClicked_Lambda([this]()
-		{
-			FAssetSearchToolModule& Module = FModuleManager::LoadModuleChecked<FAssetSearchToolModule>("AssetSearchTool");
-			Module.ShowToolWindow();
-			return FReply::Handled(); 
-		});
+		.OnClicked(onClickedFunc);
 	vBox->AddSlot().AutoHeight().AttachWidget(button);
 }
+// UE_DISABLE_OPTIMIZATION
+void FHbbEditorPluginsModule::AssetsBatchExport()
+{
+	FContentBrowserModule& ContentBrowserModule =FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+	TArray<FAssetData> assets;
+	TArray<FString> assetPaths; 
+	TArray<FString> assetPackagePaths;
+	TArray<FString> assetName;
+	TArray<UObject*> assetObjects;
+	TArray<FString> assetClasses;
+	FString savePath;
+	ContentBrowserModule.Get().GetSelectedAssets(assets);
+	FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
+	assetPaths.Reserve(assets.Num());
+	assetName.Reserve(assets.Num());
+	for(auto& p: assets)
+	{
+		//排除类型
+		if(!p.AssetClassPath.GetAssetName().IsEqual(UTexture2D::StaticClass()->GetFName())
+			&& !p.AssetClassPath.GetAssetName().IsEqual(UTextureCube::StaticClass()->GetFName())
+			&& !p.AssetClassPath.GetAssetName().IsEqual(UStaticMesh::StaticClass()->GetFName())
+			&& !p.AssetClassPath.GetAssetName().IsEqual(USkeletalMesh::StaticClass()->GetFName())
+			&& !p.AssetClassPath.GetAssetName().IsEqual(USkeleton::StaticClass()->GetFName())
+			)
+		{
+			continue;
+		}
+		assetPaths.Add(p.ObjectPath.ToString());
+		assetName.Add(p.AssetName.ToString());
+		assetPackagePaths.Add(p.PackagePath.ToString());
+		assetObjects.Add(p.GetAsset());
+		assetClasses.Add(p.AssetClassPath.GetAssetName().ToString());
+	}
+	if(assetPaths.Num() <= 0 )
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,LOCTEXT("HbbPlugins_AssetsBatchExport_Nothing" , "没有能支持批量导出的文件" ));
+		return;
+	}
+	
+	FString lastPath = FEditorDirectories::Get().GetLastDirectory(ELastDirectory::GENERIC_EXPORT);
+	FDesktopPlatformModule::Get()->OpenDirectoryDialog(nullptr,TEXT("批量导出,选择路径"),lastPath,savePath);
+	struct OutputStruct
+	{
+		FString Path;
+		UObject* Object;
+	};
+	TArray<OutputStruct> outputPaths;
+	
+	if(!savePath.IsEmpty())
+	{
+		FEditorDirectories::Get().SetLastDirectory(ELastDirectory::GENERIC_EXPORT, savePath);
+		//获取所有导出器
+		TArray<UExporter*> Exporters;
+		ObjectTools::AssembleListOfExporters(Exporters);
+		//批处理导出器记录
+		TArray<UExporter*> BatchExporters;
+		//获取支持的导出格式
+		for(auto &o : assetObjects)
+		{
+			for (int32 ExporterIndex = Exporters.Num() - 1; ExporterIndex >= 0; --ExporterIndex)
+			{
+				UExporter* Exporter = Exporters[ExporterIndex];
+				if (Exporter->SupportedClass)
+				{
+					const bool bObjectIsSupported = Exporter->SupportsObject(o);
+					if (bObjectIsSupported)
+					{
+						check(Exporter->FormatExtension.Num() == Exporter->FormatDescription.Num());
+						check(Exporter->FormatExtension.IsValidIndex(Exporter->PreferredFormatIndex));
+						FString outputPath = savePath + "/" + o->GetName();
+						
+						//完善默认后缀
+						if(Exporter->SupportedClass->GetFName().IsEqual(UStaticMesh::StaticClass()->GetFName())
+							||Exporter->SupportedClass->GetFName().IsEqual(USkeletalMesh::StaticClass()->GetFName())
+							||Exporter->SupportedClass->GetFName().IsEqual(USkeleton::StaticClass()->GetFName())
+							)
+						{
+							outputPath += ".FBX";
+						}
+						else if(Exporter->SupportedClass->GetFName().IsEqual(UTexture2D::StaticClass()->GetFName()))
+						{
+							outputPath += ".TGA";
+						}
+						else if(Exporter->SupportedClass->GetFName().IsEqual(UTextureCube::StaticClass()->GetFName()))
+						{
+							outputPath += ".HDR";
+						}
+						
+						//看看是不是我们需要的格式的导出器
+						bool bFoundExporter = false;
+						for (int32 FormatIndex = 0; FormatIndex < Exporter->FormatExtension.Num(); ++FormatIndex)
+						{
+							const FString& FormatExtension = Exporter->FormatExtension[FormatIndex];
+							//if (FCString::Stricmp(*FormatExtension, *FPaths::GetExtension(outputPath)) == 0)
+							if (FormatExtension.Equals(FPaths::GetExtension(outputPath),ESearchCase::IgnoreCase))
+							{
+								bFoundExporter = true;
+								break;
+							}
+						}
+						
+						if(bFoundExporter && outputPath.Len() > 1)
+						{
+							//收集导出路径,和Object
+							outputPaths.Add({outputPath,o});
+							
+							if(!BatchExporters.Contains(Exporter))
+							{
+								BatchExporters.Add(Exporter);
+							}
+						}
+					}
+				}
+			}
+		}
+		TArray<UExporter*> AddBatchExporters;
+		
+		for(auto& p: outputPaths)
+		{
+			for(auto& e : BatchExporters)
+			{	
+				if(e->SupportsObject(p.Object))
+				{
+					const FScopedBusyCursor BusyCursor;
+					
+					if(!AddBatchExporters.Contains(e))
+					{
+						e->SetBatchMode(true);
+						e->SetCancelBatch(false);
+						e->SetShowExportOption(true);
+						e->AddToRoot();
+						AddBatchExporters.Add(e);
+					}
+					
+					UAssetExportTask* ExportTask = NewObject<UAssetExportTask>();
+					FGCObjectScopeGuard ExportTaskGuard(ExportTask);
+					ExportTask->Object = p.Object;
+					ExportTask->Exporter = e;
+					ExportTask->Filename = p.Path;
+					ExportTask->bSelected = false;
+					ExportTask->bReplaceIdentical = true;
+					ExportTask->bPrompt = false;
+					ExportTask->bUseFileArchive = ExportTask->IsA(UPackage::StaticClass());
+					ExportTask->bWriteEmptyFiles = false;
+					
+					UExporter::RunAssetExportTask(ExportTask);
+					break;
+				}
+			}
+		}
+		for(auto& e : BatchExporters)
+		{
+			e->SetBatchMode(false);
+			e->SetCancelBatch(false);
+			e->SetShowExportOption(true);
+			e->RemoveFromRoot();
+		}
+		BatchExporters.Empty();
+		outputPaths.Empty();
+	}
+}
+// UE_ENABLE_OPTIMIZATION
 
 void FHbbEditorPluginsModule::RegisterMenus()
 {
@@ -87,6 +249,19 @@ void FHbbEditorPluginsModule::RegisterMenus()
 							}),
 							FText::FromString(TEXT("资产检索工具"))
 						);
+
+						//资产批量导出
+						AddButton(LOCTEXT("AssetBatchExportButtonName", "Asset Batch Export") , FOnClicked::CreateLambda(
+					[this]()
+							{
+								AssetsBatchExport();
+								return FReply::Handled(); 
+							}),
+							FText::FromString(TEXT("(ContentBrowser选中的资产)批量导出"
+							"\n该功能主要为了避免每一次都要选择保存目录，过于繁琐\n目前只支持Texture2D、TextureCube、StaticMesh、SkeletalMesh、Skeleton."
+							"\nTexture2D的格式是TGA\nTextureCube的格式是HDR\nStaticMesh、SkeletalMesh、Skeleton的格式是FBX"
+							))
+						);
 						
 						return vBox.ToSharedRef();
 					}),
@@ -111,61 +286,18 @@ void FHbbEditorPluginsModule::RegisterMenus()
 			MenuExtender->AddMenuExtension(
 			"GetAssetActions",
 			EExtensionHook::After,
-			nullptr,FMenuExtensionDelegate::CreateLambda([](FMenuBuilder& MenuBuilder)
+			nullptr,FMenuExtensionDelegate::CreateLambda([this](FMenuBuilder& MenuBuilder)
 			{
 				//添加菜单
 				MenuBuilder.AddMenuEntry(
-				FText::FromString(TEXT("批量导出(默认格式)")),
-				FText::FromString(TEXT("只支持Texture、StaticMesh、SkeletalMesh")),
+				FText::FromString(TEXT("批量导出")),
+				FText::FromString(TEXT("该功能主要为了避免每一次都要选择保存目录，过于繁琐\n目前只支持Texture2D、TextureCube、StaticMesh、SkeletalMesh、Skeleton."
+					"\nTexture2D的格式是TGA\nTextureCube的格式是HDR\nStaticMesh、SkeletalMesh、Skeleton的格式是FBX")),
 				FSlateIcon(),
 				//添加该菜单的点击回调事件
-				FUIAction(FExecuteAction::CreateLambda([&]()
+				FUIAction(FExecuteAction::CreateLambda([this]()
 				{
-					FContentBrowserModule& ContentBrowserModule =FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
-					TArray<FAssetData> assets;
-					TArray<FString> assetPaths;
-					TArray<FString> assetPackagePaths;
-					TArray<FString> assetName;
-					FString savePath;
-					ContentBrowserModule.Get().GetSelectedAssets(assets);
-					FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
-					assetPaths.Reserve(assets.Num());
-					assetName.Reserve(assets.Num());
-					for(auto& p: assets)
-					{
-						if(!p.AssetClass.IsEqual(UTexture2D::StaticClass()->GetFName())
-							&& !p.AssetClass.IsEqual(UTextureCube::StaticClass()->GetFName())
-							&& !p.AssetClass.IsEqual(UStaticMesh::StaticClass()->GetFName())
-							&& !p.AssetClass.IsEqual(USkeletalMesh::StaticClass()->GetFName())
-							&& !p.AssetClass.IsEqual(USkeleton::StaticClass()->GetFName())
-							)
-						assetPaths.Add(p.ObjectPath.ToString());
-						assetName.Add(p.AssetName.ToString());
-						assetPackagePaths.Add(p.PackagePath.ToString());
-					}
-					//AssetToolsModule.Get().ExportAssetsWithDialog(assetPaths, true);
-					FString lastPath = FEditorDirectories::Get().GetLastDirectory(ELastDirectory::GENERIC_EXPORT);
-					IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
-
-					FDesktopPlatformModule::Get()->OpenDirectoryDialog(nullptr,TEXT("批量导出,选择路径"),lastPath,savePath);
-					auto batchExportCachePath = FPaths::ProjectSavedDir() + "/HbbPluginsBatchExport";
-					if(!savePath.IsEmpty())
-					{
-						AssetToolsModule.Get().ExportAssets(assetPaths,batchExportCachePath);
-						//路径提取
-						for(int i = 0;  i< assetName.Num() ; i++)
-						{
-							IPlatformFile& FileManager = FPlatformFileManager::Get().GetPlatformFile();
-							
-							auto oldPath = batchExportCachePath + assetPackagePaths[i];
-							FileManager.CopyDirectoryTree(*savePath ,   *oldPath ,true);
-							auto finalDelete  = batchExportCachePath;
-							if(FileManager.DirectoryExists(*finalDelete))
-							{
-								FileManager.DeleteDirectoryRecursively(*finalDelete);
-							}
-						}
-					}
+					AssetsBatchExport();
 				})
 				));
 			}));

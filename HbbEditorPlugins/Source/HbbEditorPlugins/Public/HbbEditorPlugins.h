@@ -19,13 +19,17 @@ public:
 	
 private:
 
+	//给工具菜单添加按钮
 	void AddButton(FText ButtonName, FOnClicked onClickedFunc,FText toolTip = FText::GetEmpty());
+
+	//资产批量导出,与引擎自带导出不一样的地方是它不会每一次都询问保存路径。
+	void AssetsBatchExport();
 	
+	void RegisterMenus();
+
 	TSharedPtr<SVerticalBox> vBox;
 
 	FContentBrowserMenuExtender_SelectedAssets ContentBrowserFolderExtenderDelegate;
 	
 	FDelegateHandle ContentBrowserFolderExtenderDelegateHandle;
-	
-	void RegisterMenus();
 };
