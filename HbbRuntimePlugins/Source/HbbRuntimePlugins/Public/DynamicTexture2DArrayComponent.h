@@ -36,6 +36,9 @@ public:
 	
     UFUNCTION(BlueprintCallable)
     void SetSourceTextures(TArray<UTexture2D*> NewSourceTextures);
+
+	UFUNCTION(BlueprintCallable)
+	void UpdateTextureArrayFromSourceTextures();
 	
 private:
 

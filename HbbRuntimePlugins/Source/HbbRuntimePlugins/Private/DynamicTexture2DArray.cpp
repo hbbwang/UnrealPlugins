@@ -3,13 +3,20 @@
 
 #include "DynamicTexture2DArray.h"
 
+#include "RenderGraphBuilder.h"
+
 
 UDynamicTexture2DArray::UDynamicTexture2DArray(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 }
 
-FTextureResource* UDynamicTexture2DArray::CreateResource(TArray<TSoftObjectPtr<UTexture2D>>&SourceTextures)
+void UDynamicTexture2DArray::SetSourceTextures(TArray<TSoftObjectPtr<UTexture2D>>NewSourceTextures)
+{
+	SourceTextures = NewSourceTextures;
+}
+
+FTextureResource* UDynamicTexture2DArray::CreateResource()
 {
 	TArray<TSoftObjectPtr<UTexture2D>>validTexs;
 	validTexs.Reserve(SourceTextures.Num());
@@ -31,73 +38,99 @@ FTextureResource* UDynamicTexture2DArray::CreateResource(TArray<TSoftObjectPtr<U
 				return GetResource();
 			}
 		}
+		ReleaseResource();
 		auto newResource = new FDynamicTexture2DArrayResource(validTexs[0]->GetSizeX(),validTexs[0]->GetPixelFormat(),validTexs[0]->GetNumMips(),validTexs.Num(),validTexs[0]->SRGB);
 		SetResource(newResource);
-		UpdateFromSourceTextures(validTexs);
+		//UpdateFromSourceTextures(validTexs);
 		return newResource;
 	}
 	else
 	{
+		ReleaseResource();
 		SetResource(nullptr);
 		return nullptr;
 	}
 }
 
-void UDynamicTexture2DArray::UpdateFromSourceTextures(TArray<TSoftObjectPtr<UTexture2D>>&NewSourceTextures)
+void UDynamicTexture2DArray::UpdateResource()
 {
-	//if(this->GetResource() == nullptr)
-	if(this->GetResource() == nullptr || this->GetResource()->TextureRHI == nullptr)
-	{
-		return;
-	}
-	// if(this->GetResource()->TextureRHI == nullptr)
+	Super::UpdateResource();
+}
+
+UE_DISABLE_OPTIMIZATION
+
+void UDynamicTexture2DArray::UpdateFromSourceTextures()
+{
+	// if(this->GetResource() == nullptr)
+	// //if(this->GetResource() == nullptr || this->GetResource()->TextureRHI == nullptr)
 	// {
-	// 	ENQUEUE_RENDER_COMMAND(UpdateDynamicTexture2DArray)(
-	// 	[this,NewSourceTextures](FRHICommandListImmediate& RHICmdList)
-	// 	{
-	// 		auto res = static_cast<FDynamicTexture2DArrayResource*>(this->GetResource());
-	// 		res->InitRHI(RHICmdList);
-	// 	});
+	// 	//return;
+	// 	CreateResource();
 	// }
+	UpdateResource();
+	
 	ENQUEUE_RENDER_COMMAND(UpdateDynamicTexture2DArray)(
-	[this,NewSourceTextures](FRHICommandListImmediate& RHICmdList)
+	[this](FRHICommandListImmediate& RHICmdList)
 	{
 		auto res = static_cast<FDynamicTexture2DArrayResource*>(this->GetResource());
-		UpdateFromSourceTextures_RenderThread(RHICmdList,res,NewSourceTextures);
+		UpdateFromSourceTextures_RenderThread(RHICmdList,res);
 	});
 }
 
-void UDynamicTexture2DArray::UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList,FDynamicTexture2DArrayResource* resource,TArray<TSoftObjectPtr<UTexture2D>>NewSourceTextures)
+void UDynamicTexture2DArray::UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList,FDynamicTexture2DArrayResource* resource)
 {
+	// resource->ReleaseRHI();
+	// this->CreateResource();
+	// resource->InitRHI(RHICmdList);
+	
 	//Copy the texture2D data in to the texture2DArray.
 	//Copy the mip data in to the texture.
 	for (uint32 MipIndex = 0; MipIndex < resource->GetNumMips(); MipIndex++)
-	{		
-		for (uint32 ArrayIndex = 0; ArrayIndex < resource->GetNumSlices(); ++ArrayIndex)
+	{	
+		for (uint32 ArrayIndex = 0; ArrayIndex <1; ArrayIndex++)
 		{
 			uint32 DestStride = 0;
-			void* DestData = RHILockTexture2DArray(resource->TextureRHI, ArrayIndex, MipIndex, RLM_WriteOnly, DestStride, false);
-			if (DestData)
+			void* DestData = RHILockTexture2DArray(resource->GetTexture2DArrayRHI(),ArrayIndex,MipIndex,RLM_WriteOnly,DestStride,false);
+			int32 texSize = resource->GetSizeX();
+			// else if (DestData && srcData)
+			//if (DestData && srcData)
 			{
-				int32 texSize = resource->GetSizeX();
-					FRHICopyTextureInfo CopyInfo={};
-					CopyInfo.DestMipIndex = MipIndex;
-					CopyInfo.DestPosition = FIntVector(0, 0, 0);
-					CopyInfo.DestSliceIndex = ArrayIndex;
-					CopyInfo.NumMips = 1;
-					CopyInfo.NumSlices = 1;
-#if PLATFORM_IOS
-					CopyInfo.Size = FIntVector(CachedSize.X >> Mip,	CachedSize.Y >> Mip, 1);
-#else
-					CopyInfo.Size = FIntVector(
-						FMath::Max(texSize >> MipIndex, GPixelFormats[resource->GetPixelFormat()].BlockSizeX),
-						FMath::Max(texSize >> MipIndex, GPixelFormats[resource->GetPixelFormat()].BlockSizeY),
-						1);
-#endif
-					RHICmdList.CopyTexture(NewSourceTextures[ArrayIndex]->GetResource()->TextureRHI,resource->TextureRHI,CopyInfo);
-				}
-				RHIUnlockTexture2DArray(resource->TextureRHI, ArrayIndex, MipIndex, false);
-				RHICmdList.Transition({FRHITransitionInfo(resource->TextureRHI,ERHIAccess::ReadableMask)});
+ 				FRHICopyTextureInfo CopyInfo={};
+				
+				CopyInfo.SourceMipIndex = MipIndex;
+				CopyInfo.SourcePosition = FIntVector(0, 0, 0);
+				CopyInfo.SourceSliceIndex = 0;
+				//
+ 				CopyInfo.NumMips = 1;
+ 				CopyInfo.NumSlices = 1;
+				//
+				CopyInfo.DestMipIndex = MipIndex;
+				CopyInfo.DestPosition = FIntVector(0, 0, 0);
+				CopyInfo.DestSliceIndex = ArrayIndex;
+				//
+				// auto nextSizeX =  FMath::Max(texSize >> (MipIndex), GPixelFormats[resource->GetPixelFormat()].BlockSizeX);
+				// auto nextSizeY =  FMath::Max(texSize >> (MipIndex), GPixelFormats[resource->GetPixelFormat()].BlockSizeY);
+				// auto nextSizeX =  texSize >> (MipIndex) / GPixelFormats[resource->GetPixelFormat()].BlockSizeX;
+				// auto nextSizeY =  texSize >> (MipIndex), GPixelFormats[resource->GetPixelFormat()].BlockSizeY);
+				
+				auto nextSizeX =  texSize  >> (MipIndex) ;
+				auto nextSizeY =  texSize >> (MipIndex) ;
+				CopyInfo.Size = FIntVector(
+					nextSizeX,
+					nextSizeY,
+					1);
+				
+				//RHICmdList.CopyTexture(SourceTextures[ArrayIndex]->GetResource()->TextureRHI,resource->TextureRHI,CopyInfo);
+				TransitionAndCopyTexture(
+					RHICmdList,
+					SourceTextures[ArrayIndex]->GetResource()->TextureRHI,
+					resource->TextureRHI,
+					CopyInfo);
+				 // auto nextSizeX =  FMath::Max(texSize >> MipIndex, GPixelFormats[resource->GetPixelFormat()].BlockSizeX);
+				 // auto nextSizeY =  FMath::Max(texSize >> MipIndex, GPixelFormats[resource->GetPixelFormat()].BlockSizeY);
+				//CopyTextureData2D(srcData,DestData,nextSizeY,resource->GetPixelFormat(),SrcStride,DestStride);
+			}
+			RHIUnlockTexture2DArray(resource->GetTexture2DArrayRHI(), ArrayIndex, MipIndex, false);
 		}
 	}
 }
@@ -120,11 +153,27 @@ void FDynamicTexture2DArrayResource::InitRHI(FRHICommandListBase& RHICmdList)
 	FTextureResource::InitRHI(RHICmdList);
 	//
 	FRHITextureCreateDesc Desc =
-		FRHITextureCreateDesc::Create2DArray(TEXT("FTexture2DArrayResource"), SizeXY, SizeXY, NumSlices, Format)
-		.SetNumMips(NumMips);
-	Desc.AddFlags( (bSRGB ? ETextureCreateFlags::SRGB : ETextureCreateFlags::None) |  ETextureCreateFlags::OfflineProcessed);
+		FRHITextureCreateDesc::Create2DArray(TEXT("FDynamicTexture2DArrayResource"))
+	.SetNumMips(NumMips)
+	.SetNumSamples(1)
+	.SetInitialState(ERHIAccess::SRVMask)
+	.SetArraySize(NumSlices)
+	.SetExtent(SizeXY, SizeXY)
+	.SetFormat(Format)
+	.SetFlags((bSRGB ? ETextureCreateFlags::SRGB : ETextureCreateFlags::None)  | ETextureCreateFlags::ShaderResource);
+	
 	TextureRHI = RHICreateTexture(Desc);
 
+	// Create the sampler state RHI resource.
+	FSamplerStateInitializerRHI SamplerStateInitializer
+	(
+		Filter,
+		SamplerAddress,
+		SamplerAddress,
+		SamplerAddress
+	);
+	SamplerStateRHI = GetOrCreateSamplerState(SamplerStateInitializer);
+	DeferredPassSamplerStateRHI = SamplerStateRHI;
 	//TextureSRV = RHICmdList.CreateShaderResourceView(TextureRHI, /*MipLevel = */0, static_cast<uint8>(NumMips), Format);
 }
 
@@ -163,3 +212,4 @@ void FDynamicTexture2DArrayResource::ReleaseRHI()
 	// 	}
 	// }
 // }
+UE_ENABLE_OPTIMIZATION

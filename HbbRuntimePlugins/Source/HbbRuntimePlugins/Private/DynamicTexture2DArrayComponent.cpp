@@ -21,7 +21,7 @@ void UDynamicTexture2DArrayComponent::BeginPlay()
 	// ...
 	if(TextureArray==nullptr)
 		TextureArray = NewObject<UDynamicTexture2DArray>(this,NAME_None, RF_Public);
-	TextureArray->CreateResource(SourceTextures);
+	//TextureArray->CreateResource();
 }
 
 
@@ -46,6 +46,12 @@ void UDynamicTexture2DArrayComponent::SetSourceTextures(TArray<UTexture2D*> NewS
 				SourceTextures[i] = NewSourceTextures[i];
 			}
 		}
-		TextureArray->UpdateFromSourceTextures(SourceTextures);
+		TextureArray->SetSourceTextures(SourceTextures );
+		TextureArray->UpdateFromSourceTextures();
 	}
+}
+
+void UDynamicTexture2DArrayComponent::UpdateTextureArrayFromSourceTextures()
+{
+	TextureArray->UpdateFromSourceTextures();
 }

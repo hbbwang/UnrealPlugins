@@ -19,13 +19,17 @@ class UDynamicTexture2DArray : public UTexture
 	friend class UDynamicTexture2DArrayComponent;
 	
 public:
-	virtual FTextureResource* CreateResource(TArray<TSoftObjectPtr<UTexture2D>>&SourceTextures);
-	void UpdateFromSourceTextures(TArray<TSoftObjectPtr<UTexture2D>>&NewSourceTextures);
+	virtual void SetSourceTextures(TArray<TSoftObjectPtr<UTexture2D>>NewSourceTextures);
+	virtual FTextureResource* CreateResource()override;
+	virtual void UpdateResource() override;
+	void UpdateFromSourceTextures();
 	virtual EMaterialValueType GetMaterialType() const override { return MCT_Texture2DArray; }
 	
 private:
 	
-	void UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList,FDynamicTexture2DArrayResource* resource, TArray<TSoftObjectPtr<UTexture2D>>NewSourceTextures);
+	void UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList,FDynamicTexture2DArrayResource* resource);
+
+	TArray<TSoftObjectPtr<UTexture2D>>SourceTextures;
 };
 
 class FDynamicTexture2DArrayResource : public FTextureResource
