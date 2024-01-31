@@ -38,6 +38,10 @@ public class HbbRuntimePlugins : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
+				"RenderCore",
+				"RHI",
+				"InputCore",
+				"ImageCore",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);
