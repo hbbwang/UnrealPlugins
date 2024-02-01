@@ -2,29 +2,67 @@
 
 
 #include "DynamicTexture2DArray.h"
-
+#include "DynamicTexture2DArrayComponent.h"
 #include "RenderGraphBuilder.h"
 
 
 UDynamicTexture2DArray::UDynamicTexture2DArray(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	Comp = (UDynamicTexture2DArrayComponent*)GetOuter();
 }
 
-UE_DISABLE_OPTIMIZATION
 void UDynamicTexture2DArray::SetSourceTextures(TArray<TSoftObjectPtr<UTexture2D>>NewSourceTextures)
 {
 	SourceTextures.Empty();
 	SourceTextures.Reserve(NewSourceTextures.Num());
 	for(auto& i : NewSourceTextures)
 	{
-		if(i)
+		UTexture2D* texObject = nullptr;
+		if(!i || !i.IsValid())
 		{
-			SourceTextures.Add(i);
-			i->NeverStream = 1;
-			i->UpdateResource();
+			texObject = i.LoadSynchronous();
+		}
+		else
+		{
+			texObject = i.Get();
+		}
+		SourceTextures.Add(texObject);
+		if(texObject->NeverStream == 0 )
+		{
+			texObject->NeverStream = 1;
+			texObject->UpdateResource();
 		}
 	}
+	UpdateResource();
+	UpdateFromSourceTextures(-1);
+}
+
+void UDynamicTexture2DArray::SetSourceTexture(TSoftObjectPtr<UTexture2D> NewSourceTexture, int32 index )
+{
+	if(NewSourceTexture)
+	{
+		if(SourceTextures.Num()>0 && SourceTextures.IsValidIndex(index) )
+		{
+			SourceTextures[index] = NewSourceTexture;
+			UTexture2D* texObject = nullptr;
+			if(!SourceTextures[index])
+			{
+				texObject = SourceTextures[index].LoadSynchronous();
+			}
+			else
+			{
+				texObject = SourceTextures[index].Get();
+			}
+			if(texObject->NeverStream == 0)
+			{
+				texObject->NeverStream = 1;
+				texObject->UpdateResource();
+			}
+		}
+	}
+	UpdateResource();
+	UpdateFromSourceTextures(index);
 }
 
 FTextureResource* UDynamicTexture2DArray::CreateResource()
@@ -43,8 +81,6 @@ FTextureResource* UDynamicTexture2DArray::CreateResource()
 		}
 		auto newResource = new FDynamicTexture2DArrayResource(this,TargetTextureSize,TargetPixelFormat,SourceTextures[0]->GetNumMips(),SourceTextures.Num(),SourceTextures[0]->SRGB);
 		SetResource(newResource);
-		//UpdateResource();
-		//UpdateFromSourceTextures(validTexs);
 		return newResource;
 	}
 	else
@@ -64,28 +100,33 @@ FTextureResource* UDynamicTexture2DArray::CreateResource()
 void UDynamicTexture2DArray::UpdateResource()
 {
 	auto currentRes = static_cast<FDynamicTexture2DArrayResource*>(GetResource());
-	if(GetResource() == nullptr || (TargetPixelFormat != currentRes->GetPixelFormat() || currentRes->GetPixelFormat() != TargetTextureSize))
+	if(GetResource() == nullptr
+		|| (TargetPixelFormat != currentRes->GetPixelFormat()
+		|| currentRes->GetSizeX() != TargetTextureSize)
+		|| SourceTextures.Num() != currentRes->GetNumSlices()
+		|| bForceUpdate)
 	{
-		// 	CreateResource();
+		bForceUpdate = false;
 		UTexture::UpdateResource();
 	}
-
-	ENQUEUE_RENDER_COMMAND(UpdateDynamicTexture2DArray)(
-	[this](FRHICommandListImmediate& RHICmdList)
-	{
-		UpdateFromSourceTextures_RenderThread(RHICmdList);
-	});
-	
 }
 
-void UDynamicTexture2DArray::UpdateFromSourceTextures()
+void UDynamicTexture2DArray::ForceUpdateResource()
 {
-	// if(this->GetResource() == nullptr)
-	
+	bForceUpdate = true;
 	UpdateResource();
 }
 
-void UDynamicTexture2DArray::UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList)
+void UDynamicTexture2DArray::UpdateFromSourceTextures(int32 index)
+{
+	ENQUEUE_RENDER_COMMAND(UpdateDynamicTexture2DArray)(
+	[this,index](FRHICommandListImmediate& RHICmdList)
+	{
+		UpdateFromSourceTextures_RenderThread(RHICmdList,index);
+	});
+}
+
+void UDynamicTexture2DArray::UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList, int32 index)
 {
 	check(IsInRenderingThread());
 	
@@ -97,23 +138,55 @@ void UDynamicTexture2DArray::UpdateFromSourceTextures_RenderThread(FRHICommandLi
 	}
 	auto resource = static_cast<FDynamicTexture2DArrayResource*>(this->GetResource());
 	auto DestinationTextureArrayRHI = resource->TextureRHI;
-	for (int32 ArrayIndex = 0; ArrayIndex < SourceTextures.Num(); ArrayIndex++)
+	if(index == -1)
+	{
+		for (int32 ArrayIndex = 0; ArrayIndex < SourceTextures.Num(); ArrayIndex++)
+		{
+			for (uint32 MipIndex = 0; MipIndex < resource->GetNumMips(); MipIndex++)
+			{	
+				if(!SourceTextures[ArrayIndex].IsValid())
+				{
+					continue;
+				}
+				{
+					UTexture2D* srcTex = SourceTextures[ArrayIndex].Get();
+					auto SourceTextureRHI = srcTex->GetResource()->TextureRHI;
+				
+					FRHICopyTextureInfo CopyInfo={};
+					CopyInfo.SourceMipIndex = MipIndex;
+					//
+					CopyInfo.DestMipIndex = MipIndex;
+					CopyInfo.DestSliceIndex = ArrayIndex;
+					//
+					auto CopySize = SourceTextureRHI->GetMipDimensions(MipIndex);
+					CopyInfo.Size = CopySize;
+				
+					TransitionAndCopyTexture(
+						RHICmdList,
+						SourceTextureRHI,
+						DestinationTextureArrayRHI,
+						CopyInfo);
+				}
+			}
+		}
+	}
+	else if(SourceTextures.IsValidIndex(index))
 	{
 		for (uint32 MipIndex = 0; MipIndex < resource->GetNumMips(); MipIndex++)
 		{	
-			if(!SourceTextures[ArrayIndex].IsValid())
+			if(!SourceTextures[index].IsValid())
 			{
 				continue;
 			}
 			{
-				UTexture2D* srcTex = SourceTextures[ArrayIndex].Get();
+				UTexture2D* srcTex = SourceTextures[index].Get();
 				auto SourceTextureRHI = srcTex->GetResource()->TextureRHI;
 				
- 				FRHICopyTextureInfo CopyInfo={};
+				FRHICopyTextureInfo CopyInfo={};
 				CopyInfo.SourceMipIndex = MipIndex;
 				//
 				CopyInfo.DestMipIndex = MipIndex;
-				CopyInfo.DestSliceIndex = ArrayIndex;
+				CopyInfo.DestSliceIndex = index;
 				//
 				auto CopySize = SourceTextureRHI->GetMipDimensions(MipIndex);
 				CopyInfo.Size = CopySize;
@@ -194,5 +267,3 @@ void FDynamicTexture2DArrayResource::ReleaseRHI()
 	FTextureResource::ReleaseRHI();
 	
 }
-
-UE_ENABLE_OPTIMIZATION

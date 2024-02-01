@@ -21,9 +21,6 @@ public:
 	UDynamicTexture2DArray* GetTextureArray()const{return TextureArray;}
 	
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="DynamicTexture2DArray")
-	int32 TextureSize;
-	
-	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="DynamicTexture2DArray")
 	TArray<TSoftObjectPtr<UTexture2D>> SourceTextures;
 
 protected:
@@ -32,10 +29,13 @@ protected:
 
 public:	
 	// Called every frame
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	//virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	
     UFUNCTION(BlueprintCallable)
-    void SetSourceTextures(TArray<TSoftObjectPtr<UTexture2D>> NewSourceTextures);
+    void UpdateSourceTextures(TArray<TSoftObjectPtr<UTexture2D>> NewSourceTextures);
+
+	UFUNCTION(BlueprintCallable)
+	void UpdateSourceTexture(TSoftObjectPtr<UTexture2D> NewSourceTexture , int32 index = 0);
 
 	UFUNCTION(BlueprintCallable)
 	void UpdateTextureArrayFromSourceTextures();

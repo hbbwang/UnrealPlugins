@@ -6,55 +6,94 @@
 // Sets default values for this component's properties
 UDynamicTexture2DArrayComponent::UDynamicTexture2DArrayComponent()
 {
-	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
-	// off to improve performance if you don't need them.
-	PrimaryComponentTick.bCanEverTick = true;
-	// ...
-	TextureSize = 1024;
+	PrimaryComponentTick.bCanEverTick = false;
 }
 
 // Called when the game starts
 void UDynamicTexture2DArrayComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
 	// ...
-	if(TextureArray==nullptr)
+	if(SourceTextures.Num()>0 && TextureArray==nullptr)
+	{
 		TextureArray = NewObject<UDynamicTexture2DArray>(this,NAME_None, RF_Public);
-	SetSourceTextures(SourceTextures);
-	//TextureArray->CreateResource();
+		UpdateTextureArrayFromSourceTextures();
+	}
 }
-
 
 // Called every frame
-void UDynamicTexture2DArrayComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
-{
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+// void UDynamicTexture2DArrayComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+// {
+// 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+// }
 
-	// ...
-}
-
-void UDynamicTexture2DArrayComponent::SetSourceTextures(TArray<TSoftObjectPtr<UTexture2D>> NewSourceTextures)
+UE_DISABLE_OPTIMIZATION
+void UDynamicTexture2DArrayComponent::UpdateSourceTextures(TArray<TSoftObjectPtr<UTexture2D>> NewSourceTextures)
 {
 	const auto newArraySize = NewSourceTextures.Num();
 	if(newArraySize>0)
 	{
-		SourceTextures.Empty();
-		SourceTextures.Reserve(newArraySize);
-		for(int i = 0 ;i < newArraySize;i++)
+		TArray<TSoftObjectPtr<UTexture2D>> validTextures;
+		validTextures.Reserve(newArraySize);
+		auto firstTemplate = NewSourceTextures[0].Get();
+		auto firstPlatformData = firstTemplate->GetPlatformData();
+		for (int32  i = 0 ; i<newArraySize;i++ )
 		{
-			if(NewSourceTextures[i] && NewSourceTextures.IsValidIndex(i))
+			if(i>0)
 			{
-				SourceTextures.Add(NewSourceTextures[i]);
+				auto currentPlatformData = NewSourceTextures[i]->GetPlatformData();
+				//纹理格式不一致,不允许在一起
+				if(firstPlatformData)
+				{
+					if(NewSourceTextures[i]->GetMaterialType() != MCT_Texture2D )
+					{
+						UE_LOG(LogTemp, Warning, TEXT("%s:需要添加到DynamicTexture2DArray的纹理类型不是一张Texture2D,请确认纹理类型无误,这张纹理是:%s")
+							, *this->GetOwner()->GetActorNameOrLabel(),  *NewSourceTextures[i]->GetPathName());
+						continue;
+					}
+					else if(firstPlatformData->SizeX != currentPlatformData->SizeX ||	firstPlatformData->SizeY != currentPlatformData->SizeY)
+					{
+						UE_LOG(LogTemp, Warning, TEXT("%s:纹理的分辨率不一致!无法添加进DynamicTexture2DArray,指定纹理大小是%d,%d,但是当前纹理大小是%d,%d,这张纹理是:%s")
+							, *this->GetOwner()->GetActorNameOrLabel(), firstPlatformData->SizeX , firstPlatformData->SizeY ,currentPlatformData->SizeX , currentPlatformData->SizeY,  *NewSourceTextures[i]->GetPathName());
+						continue;
+					}
+					else if(firstPlatformData->PixelFormat != currentPlatformData->PixelFormat)
+					{
+						UE_LOG(LogTemp, Warning, TEXT("%s:纹理的格式(PixelFormat)不一致!无法添加进DynamicTexture2DArray,指定格式是%s,但是当前纹理是%s,(请查看一下纹理的压缩格式或者是否勾选了Compress without alpha)这张纹理是:%s")
+							, *this->GetOwner()->GetActorNameOrLabel() , GPixelFormats[firstPlatformData->PixelFormat].Name , GPixelFormats[currentPlatformData->PixelFormat].Name, *NewSourceTextures[i]->GetPathName());
+						continue;
+					}
+					else if(firstTemplate->GetNumMips() != NewSourceTextures[i]->GetNumMips() )
+					{
+						UE_LOG(LogTemp, Warning, TEXT("%s:纹理的Mip层数不一致!添加到DynamicTexture2DArray失败,指定Mip层数是%d,但是当前Mip层数是%d,这张纹理是:%s")
+							, *this->GetOwner()->GetActorNameOrLabel() , firstTemplate->GetNumMips() , NewSourceTextures[i]->GetNumMips() , *NewSourceTextures[i]->GetPathName());
+						continue;
+					}
+				}
 			}
+			validTextures.Add(NewSourceTextures[i]);
 		}
+		
+		SourceTextures.Empty();
+		SourceTextures = validTextures;
 		TextureArray->SetSourceTextures(SourceTextures);
-		TextureArray->UpdateFromSourceTextures();
+	}
+}
+UE_ENABLE_OPTIMIZATION
+void UDynamicTexture2DArrayComponent::UpdateSourceTexture(TSoftObjectPtr<UTexture2D> NewSourceTexture, int32 index )
+{
+	if(SourceTextures.Num()>0)
+	{
+		if(SourceTextures.IsValidIndex(index))
+		{
+			SourceTextures[index] = NewSourceTexture;
+			TextureArray->SetSourceTexture(SourceTextures[index],index);
+		}
 	}
 }
 
 void UDynamicTexture2DArrayComponent::UpdateTextureArrayFromSourceTextures()
 {
-	SetSourceTextures(SourceTextures);
-	TextureArray->UpdateFromSourceTextures();
+	UpdateSourceTextures(SourceTextures);
+	TextureArray->UpdateFromSourceTextures(-1);
 }
