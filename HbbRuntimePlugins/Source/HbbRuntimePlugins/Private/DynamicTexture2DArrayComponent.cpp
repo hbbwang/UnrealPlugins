@@ -21,6 +21,7 @@ void UDynamicTexture2DArrayComponent::BeginPlay()
 	// ...
 	if(TextureArray==nullptr)
 		TextureArray = NewObject<UDynamicTexture2DArray>(this,NAME_None, RF_Public);
+	SetSourceTextures(SourceTextures);
 	//TextureArray->CreateResource();
 }
 
@@ -33,25 +34,27 @@ void UDynamicTexture2DArrayComponent::TickComponent(float DeltaTime, ELevelTick 
 	// ...
 }
 
-void UDynamicTexture2DArrayComponent::SetSourceTextures(TArray<UTexture2D*> NewSourceTextures)
+void UDynamicTexture2DArrayComponent::SetSourceTextures(TArray<TSoftObjectPtr<UTexture2D>> NewSourceTextures)
 {
 	const auto newArraySize = NewSourceTextures.Num();
-	if(newArraySize>0 && NewSourceTextures[0])
+	if(newArraySize>0)
 	{
+		SourceTextures.Empty();
 		SourceTextures.Reserve(newArraySize);
 		for(int i = 0 ;i < newArraySize;i++)
 		{
-			if(NewSourceTextures[i] && SourceTextures.IsValidIndex(i))
+			if(NewSourceTextures[i] && NewSourceTextures.IsValidIndex(i))
 			{
-				SourceTextures[i] = NewSourceTextures[i];
+				SourceTextures.Add(NewSourceTextures[i]);
 			}
 		}
-		TextureArray->SetSourceTextures(SourceTextures );
+		TextureArray->SetSourceTextures(SourceTextures);
 		TextureArray->UpdateFromSourceTextures();
 	}
 }
 
 void UDynamicTexture2DArrayComponent::UpdateTextureArrayFromSourceTextures()
 {
+	SetSourceTextures(SourceTextures);
 	TextureArray->UpdateFromSourceTextures();
 }

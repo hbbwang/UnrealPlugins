@@ -27,15 +27,19 @@ public:
 	
 private:
 	
-	void UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList,FDynamicTexture2DArrayResource* resource);
-
+	void UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList);
+	
 	TArray<TSoftObjectPtr<UTexture2D>>SourceTextures;
+
+	int32 TargetTextureSize;
+	EPixelFormat TargetPixelFormat;
 };
 
 class FDynamicTexture2DArrayResource : public FTextureResource
 {
+	friend class UDynamicTexture2DArray;
 public:
-	FDynamicTexture2DArrayResource(uint32 InSizeXY, EPixelFormat InFormat, uint32 InNumMips,uint32 InNumSlices,bool InbSRGB);
+	FDynamicTexture2DArrayResource(UDynamicTexture2DArray* InOwner , uint32 InSizeXY, EPixelFormat InFormat, uint32 InNumMips,uint32 InNumSlices,bool InbSRGB);
 	
 	virtual uint32 GetSizeX() const override { return SizeXY; }
 	virtual uint32 GetSizeY() const override { return SizeXY;}
@@ -68,6 +72,7 @@ public:
 	}
 	
 private:
+	UDynamicTexture2DArray* Owner;
 	uint32 SizeXY;
 	EPixelFormat Format;
 	uint32 NumMips;
