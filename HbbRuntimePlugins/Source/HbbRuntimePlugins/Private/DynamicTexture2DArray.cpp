@@ -10,32 +10,62 @@ UDynamicTexture2DArray::UDynamicTexture2DArray(const FObjectInitializer& ObjectI
 	: Super(ObjectInitializer)
 {
 	Comp = (UDynamicTexture2DArrayComponent*)GetOuter();
+
+	TextureSize = 2; 
+	PixelFormat = PF_DXT1;
+	NumMips = 1;
+	NumSlices = 1;
+	SRGB = true;
 }
 
 void UDynamicTexture2DArray::SetSourceTextures(TArray<TSoftObjectPtr<UTexture2D>>NewSourceTextures)
 {
-	SourceTextures.Empty();
-	SourceTextures.Reserve(NewSourceTextures.Num());
-	for(auto& i : NewSourceTextures)
+	if(NewSourceTextures.Num()>0)
 	{
-		UTexture2D* texObject = nullptr;
-		if(!i || !i.IsValid())
+		SourceTextures.Empty();
+		SourceTextures.Reserve(NewSourceTextures.Num());
+		int32 index = 0;
+		for(auto& i : NewSourceTextures)
 		{
-			texObject = i.LoadSynchronous();
+			UTexture2D* texObject = nullptr;
+			if(!i || !i.IsValid())
+			{
+				texObject = i.LoadSynchronous();
+			}
+			else
+			{
+				texObject = i.Get();
+			}
+			if(index == 0)
+			{
+				TextureSize = texObject->GetSizeX(); 
+				PixelFormat = texObject->GetPixelFormat();
+				NumMips = texObject->GetNumMips();
+				NumSlices = texObject->GetResource()->TextureRHI->GetDesc().ArraySize;
+				SRGB = texObject->SRGB;
+			}
+			else
+			{
+				if(TextureSize != texObject->GetSizeX() 
+				|| PixelFormat != texObject->GetPixelFormat()
+				|| NumMips != texObject->GetNumMips()
+				|| NumSlices != texObject->GetResource()->TextureRHI->GetDesc().ArraySize
+				|| SRGB != texObject->SRGB
+				)
+				{
+					continue;
+				}
+			}
+			SourceTextures.Add(texObject);
+			if(texObject->NeverStream == 0 )
+			{ 
+				texObject->NeverStream = 1;
+				texObject->UpdateResource();
+			}
+			index ++;
 		}
-		else
-		{
-			texObject = i.Get();
-		}
-		SourceTextures.Add(texObject);
-		if(texObject->NeverStream == 0 )
-		{
-			texObject->NeverStream = 1;
-			texObject->UpdateResource();
-		}
+		UpdateResource(-1);
 	}
-	UpdateResource();
-	UpdateFromSourceTextures(-1);
 }
 
 void UDynamicTexture2DArray::SetSourceTexture(TSoftObjectPtr<UTexture2D> NewSourceTexture, int32 index )
@@ -54,60 +84,97 @@ void UDynamicTexture2DArray::SetSourceTexture(TSoftObjectPtr<UTexture2D> NewSour
 			{
 				texObject = SourceTextures[index].Get();
 			}
+
+			if(TextureSize != texObject->GetSizeX() 
+				|| PixelFormat != texObject->GetPixelFormat()
+				|| NumMips != texObject->GetNumMips()
+				|| NumSlices != texObject->GetResource()->TextureRHI->GetDesc().ArraySize
+				|| SRGB != texObject->SRGB
+				)
+			{
+				return;
+			}
+			
 			if(texObject->NeverStream == 0)
 			{
 				texObject->NeverStream = 1;
 				texObject->UpdateResource();
 			}
+			UpdateResource(index);
 		}
 	}
-	UpdateResource();
-	UpdateFromSourceTextures(index);
 }
 
 FTextureResource* UDynamicTexture2DArray::CreateResource()
 {
-	if(SourceTextures.Num()>0&&SourceTextures[0])
+	//if(SourceTextures.Num()>0&&SourceTextures[0])
 	{
-		TargetTextureSize = SourceTextures[0]->GetSizeX();
-		TargetPixelFormat = SourceTextures[0]->GetPixelFormat();
+		//TextureSize = SourceTextures[0]->GetSizeX();
+		//PixelFormat = SourceTextures[0]->GetPixelFormat();
 		if(GetResource() != nullptr)
 		{
 			auto currentRes = static_cast<FDynamicTexture2DArrayResource*>(GetResource());
-			if(currentRes->GetSizeX() == TargetTextureSize && currentRes->GetPixelFormat() == TargetPixelFormat)
+			if(currentRes->GetSizeX() == TextureSize
+				&& currentRes->GetPixelFormat() == PixelFormat
+				&& currentRes->GetNumMips() == NumMips
+				&& currentRes->GetNumSlices() == NumSlices
+				&& currentRes->bSRGB == SRGB
+				)
 			{
 				return GetResource();
 			}
 		}
-		auto newResource = new FDynamicTexture2DArrayResource(this,TargetTextureSize,TargetPixelFormat,SourceTextures[0]->GetNumMips(),SourceTextures.Num(),SourceTextures[0]->SRGB);
+		ReleaseResource();
+		auto newResource = new FDynamicTexture2DArrayResource(this,TextureSize,PixelFormat,NumMips,NumSlices,SRGB);
 		SetResource(newResource);
 		return newResource;
 	}
-	else
-	{
-		if(GetResource() != nullptr)
-		{
-			return GetResource();
-		}
-		else
-		{
-			ReleaseResource();
-			return nullptr;
-		}
-	}
+	// else
+	// {
+	// 	if(GetResource() != nullptr)
+	// 	{
+	// 		return GetResource();
+	// 	}
+	// 	else
+	// 	{
+	// 		ReleaseResource();
+	// 		return nullptr;
+	// 	}
+	// }
+	return nullptr;
 }
 
 void UDynamicTexture2DArray::UpdateResource()
 {
 	auto currentRes = static_cast<FDynamicTexture2DArrayResource*>(GetResource());
 	if(GetResource() == nullptr
-		|| (TargetPixelFormat != currentRes->GetPixelFormat()
-		|| currentRes->GetSizeX() != TargetTextureSize)
-		|| SourceTextures.Num() != currentRes->GetNumSlices()
+		|| PixelFormat	!= currentRes->GetPixelFormat()
+		|| TextureSize	!= currentRes->GetSizeX()
+		|| NumSlices	!= currentRes->GetNumSlices()
+		|| NumMips		!= currentRes->GetNumMips()
+		|| SRGB		!= currentRes->bSRGB
 		|| bForceUpdate)
 	{
 		bForceUpdate = false;
 		UTexture::UpdateResource();
+		UpdateFromSourceTextures(-1);
+	}
+}
+
+void UDynamicTexture2DArray::UpdateResource(int32 updateTextureIndex)
+{
+	auto currentRes = static_cast<FDynamicTexture2DArrayResource*>(GetResource());
+	if(GetResource() == nullptr
+		|| PixelFormat	!= currentRes->GetPixelFormat()
+		|| TextureSize	!= currentRes->GetSizeX()
+		|| NumSlices	!= currentRes->GetNumSlices()
+		|| NumMips		!= currentRes->GetNumMips()
+		|| SRGB		!= currentRes->bSRGB
+		|| bForceUpdate)
+	{
+		bForceUpdate = false;
+		UTexture::UpdateResource();
+		UpdateFromSourceTextures(updateTextureIndex);
 	}
 }
 
@@ -199,26 +266,76 @@ void UDynamicTexture2DArray::UpdateFromSourceTextures_RenderThread(FRHICommandLi
 			}
 		}
 	}
-	// RHICmdList.BlockUntilGPUIdle();
-	// RHICmdList.SubmitCommandsAndFlushGPU();
-	// RHICmdList.FlushResources();
+	Async(EAsyncExecution::Thread, [this]()
+	{
+		// for(auto& i : SourceTextures)
+		// {
+		// 	if(i)
+		// 	{
+		// 		i->NeverStream = 0;
+		// 		i->UpdateResource();
+		// 	}
+		// }
+		SourceTextures.Empty();
+	});
+}
+
+void UDynamicTexture2DArray::UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList,TArray<FTexture*> FTextures)
+{
+	check(IsInRenderingThread());
 	
-	// Async(EAsyncExecution::Thread, [this]()
-	// {
-	// 	// for(auto& i : SourceTextures)
-	// 	// {
-	// 	// 	if(i)
-	// 	// 	{
-	// 	// 		i->NeverStream = 0;
-	// 	// 		i->UpdateResource();
-	// 	// 	}
-	// 	// }
-	// 	SourceTextures.Empty();
-	// });
+	if(this->GetResource() == nullptr
+	|| this->GetResource()->TextureRHI == nullptr
+	|| FTextures.Num() <= 0)
+	{
+		return;
+	}
+	auto resource = static_cast<FDynamicTexture2DArrayResource*>(this->GetResource());
+	auto DestinationTextureArrayRHI = resource->TextureRHI;
+	for (int32 ArrayIndex = 0; ArrayIndex < FTextures.Num(); ArrayIndex++)
+	{
+		for (uint32 MipIndex = 0; MipIndex < resource->GetNumMips(); MipIndex++)
+		{	
+			if(!FTextures[ArrayIndex] && !FTextures[ArrayIndex]->GetTextureRHI().IsValid())
+			{
+				continue;
+			}
+			{
+				auto SourceTextureRHI = FTextures[ArrayIndex]->GetTextureRHI();
+				
+				FRHICopyTextureInfo CopyInfo={};
+				CopyInfo.SourceMipIndex = MipIndex;
+				//
+				CopyInfo.DestMipIndex = MipIndex;
+				CopyInfo.DestSliceIndex = ArrayIndex;
+				//
+				auto CopySize = SourceTextureRHI->GetMipDimensions(MipIndex);
+				CopyInfo.Size = CopySize;
+				
+				TransitionAndCopyTexture(
+					RHICmdList,
+					SourceTextureRHI,
+					DestinationTextureArrayRHI,
+					CopyInfo);
+			}
+		}
+	}
+	Async(EAsyncExecution::Thread, [this]()
+	{
+		// for(auto& i : SourceTextures)
+		// {
+		// 	if(i)
+		// 	{
+		// 		i->NeverStream = 0;
+		// 		i->UpdateResource();
+		// 	}
+		// }
+		SourceTextures.Empty();
+	});
 }
 
 FDynamicTexture2DArrayResource::FDynamicTexture2DArrayResource(UDynamicTexture2DArray* InOwner , uint32 InSizeXY, EPixelFormat InFormat, uint32 InNumMips,
-	uint32 InNumSlices, bool InbSRGB)
+                                                               uint32 InNumSlices, bool InbSRGB)
 {
 	SizeXY = InSizeXY;
 	Format = InFormat;

@@ -10,34 +10,37 @@ class FDynamicTexture2DArrayResource;
 /**
  * 
  */
-#define MAX_ARRAY_SLICES 512
 
 UCLASS(HideCategories = Object, MinimalAPI, BlueprintType)
 class UDynamicTexture2DArray : public UTexture
 {
 	GENERATED_UCLASS_BODY()
+	friend class UDynamicTexture2DArrayFactory;
 	friend class UDynamicTexture2DArrayComponent;
-	
+	friend class UHbbRuntimeBPFunctionLibrary;
 public:
-	virtual void SetSourceTextures(TArray<TSoftObjectPtr<UTexture2D>>NewSourceTextures);
-	virtual void SetSourceTexture(TSoftObjectPtr<UTexture2D>NewSourceTexture , int32 index );
+	HBBRUNTIMEPLUGINS_API virtual void SetSourceTextures(TArray<TSoftObjectPtr<UTexture2D>>NewSourceTextures);
+	HBBRUNTIMEPLUGINS_API virtual void SetSourceTexture(TSoftObjectPtr<UTexture2D>NewSourceTexture , int32 index );
+	HBBRUNTIMEPLUGINS_API virtual void UpdateResource() override;
+	HBBRUNTIMEPLUGINS_API virtual void UpdateResource(int32 updateTextureIndex);
+	HBBRUNTIMEPLUGINS_API virtual void ForceUpdateResource();
+	HBBRUNTIMEPLUGINS_API void UpdateFromSourceTextures(int32 index);
+	HBBRUNTIMEPLUGINS_API virtual EMaterialValueType GetMaterialType() const override { return MCT_Texture2DArray; }
+protected:
 	virtual FTextureResource* CreateResource()override;
-	virtual void UpdateResource() override;
-	virtual void ForceUpdateResource();
-	void UpdateFromSourceTextures(int32 index);
-	virtual EMaterialValueType GetMaterialType() const override { return MCT_Texture2DArray; }
-	
-private:
-	
 	void UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList, int32 index);
-	
+	void UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList, TArray<FTexture*> FTextures);
+private:
 	TArray<TSoftObjectPtr<UTexture2D>>SourceTextures;
-
-	int32 TargetTextureSize;
-	EPixelFormat TargetPixelFormat;
 	UDynamicTexture2DArrayComponent* Comp;
 	bool bForceUpdate ;
+	//
+	int32 TextureSize;
+	EPixelFormat PixelFormat;
+	uint32 NumMips;
+	uint32 NumSlices;
 };
+
 
 class FDynamicTexture2DArrayResource : public FTextureResource
 {
@@ -69,11 +72,6 @@ public:
 	{
 		return NumSlices;
 	}
-
-	FShaderResourceViewRHIRef GetSRV()
-	{
-		return TextureSRV;
-	}
 	
 private:
 	UDynamicTexture2DArray* Owner;
@@ -84,5 +82,4 @@ private:
 	ESamplerFilter Filter;
 	ESamplerAddressMode SamplerAddress;
 	bool bSRGB;
-	FShaderResourceViewRHIRef TextureSRV;
 };

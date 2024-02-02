@@ -42,6 +42,8 @@ public class HbbRuntimePlugins : ModuleRules
 				"RHI",
 				"InputCore",
 				"ImageCore",
+				"AssetRegistry",
+				
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

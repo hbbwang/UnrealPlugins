@@ -25,7 +25,7 @@ public class HbbEditorPlugins : ModuleRules
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Core", "ContentBrowser",
+				"Core", "ContentBrowser", "EngineAssetDefinitions", "HbbRuntimePlugins", "AssetDefinition"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
@@ -42,7 +42,7 @@ public class HbbEditorPlugins : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"Slate",
-				"SlateCore", "AssetSearchTool"
+				"SlateCore", "AssetSearchTool", "TextureEditor"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);
