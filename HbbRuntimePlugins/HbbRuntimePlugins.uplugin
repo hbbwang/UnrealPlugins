@@ -19,6 +19,11 @@
 			"Name": "HbbRuntimePlugins",
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "DynamicTexture2DArray",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
 		}
 	]
 }

@@ -6,15 +6,26 @@
 #include "EngineUtils.h"
 #include "RenderGraphBuilder.h"
 
+#define LOCTEXT_NAMESPACE "FDynamicTexture2DArrayModule"
+void FDynamicTexture2DArrayModule::StartupModule()
+{
+}
+void FDynamicTexture2DArrayModule::ShutdownModule() 
+{
+}
+#undef LOCTEXT_NAMESPACE
+IMPLEMENT_MODULE(FDynamicTexture2DArrayModule, DynamicTexture2DArray)
+
+
+//UDynamicTexture2DArray UObject:
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(DynamicTexture2DArray)
-
 #define LOCTEXT_NAMESPACE "UDynamicTexture2DArray"
-
 UDynamicTexture2DArray::UDynamicTexture2DArray(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	TextureSize = 2;   
-	PixelFormat = PF_DXT1;   
+	PixelFormat = PF_DXT1; 
 	NumMips = 1; 
 	NumSlices = 1;
 	SRGB = true;
@@ -128,7 +139,7 @@ UDynamicTexture2DArray* UDynamicTexture2DArray::CreateDynamicTexture2DArray(UObj
 		}
 		newDT2DA->SetSourceTextures(softTexs);
 	
-		ENQUEUE_RENDER_COMMAND(UpdateDynamicTexture2DArray)(
+		ENQUEUE_RENDER_COMMAND(CreateDynamicTexture2DArray)(
 		[newDT2DA](FRHICommandListImmediate& RHICmdList)
 		{
 			newDT2DA->UpdateFromSourceTextures_RenderThread(RHICmdList,{GWhiteTexture});
@@ -157,17 +168,12 @@ UDynamicTexture2DArray* UDynamicTexture2DArray::CreateDynamicTexture2DArrayDefau
 	newDT2DA->NumMips = systemTexRHIDesc.NumMips;
 	newDT2DA->NumSlices = systemTexRHIDesc.ArraySize; 
 	newDT2DA->UpdateResource();
-	ENQUEUE_RENDER_COMMAND(UpdateDynamicTexture2DArray)(
+	ENQUEUE_RENDER_COMMAND(CreateDynamicTexture2DArrayDefault)(
 	[newDT2DA](FRHICommandListImmediate& RHICmdList)
 	{
 		newDT2DA->UpdateFromSourceTextures_RenderThread(RHICmdList,{GWhiteTexture});
 	});
 	return newDT2DA;
-}
-
-void UDynamicTexture2DArray::Serialize(FArchive& Ar)
-{
-	Super::Serialize(Ar);
 }
 
 FTextureResource* UDynamicTexture2DArray::CreateResource()
@@ -228,12 +234,12 @@ void UDynamicTexture2DArray::UpdateResourceWithIndex(int32 updateTextureIndex)
 void UDynamicTexture2DArray::ForceUpdateResource()
 {
 	bForceUpdate = true;
-	UpdateResource(); 
+	UpdateResource();  
 }
 
 void UDynamicTexture2DArray::UpdateFromSourceTextures(int32 index)
 {
-	ENQUEUE_RENDER_COMMAND(UpdateDynamicTexture2DArray)(
+	ENQUEUE_RENDER_COMMAND(UpdateFromSourceTextures)(
 	[this,index](FRHICommandListImmediate& RHICmdList)
 	{
 		UpdateFromSourceTextures_RenderThread(RHICmdList,index);
@@ -407,7 +413,7 @@ void FDynamicTexture2DArrayResource::InitRHI(FRHICommandListBase& RHICmdList)
 	
 	TextureRHI = RHICreateTexture(Desc);
 
-	if (Owner)
+	if (Owner.IsValid())
 	{
 		RHIBindDebugLabelName(TextureRHI, *Owner->GetName());
 		RHIUpdateTextureReference(Owner->TextureReference.TextureReferenceRHI, TextureRHI);

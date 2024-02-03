@@ -7,9 +7,8 @@
 #include "Components/ActorComponent.h"
 #include "DynamicTexture2DArrayComponent.generated.h"
 
-
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
-class HBBRUNTIMEPLUGINS_API UDynamicTexture2DArrayComponent : public UActorComponent
+class DYNAMICTEXTURE2DARRAY_API UDynamicTexture2DArrayComponent : public UActorComponent
 {
 	GENERATED_BODY()
 

@@ -12,6 +12,5 @@
 UCLASS()
 class HBBRUNTIMEPLUGINS_API UHbbRuntimeBPFunctionLibrary : public UBlueprintFunctionLibrary
 {
-	GENERATED_BODY()
-	
+	GENERATED_BODY() 
 };

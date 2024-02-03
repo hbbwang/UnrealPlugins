@@ -3,9 +3,19 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
 #include "UObject/ObjectMacros.h"
 #include "Engine/Texture.h"
 #include "DynamicTexture2DArray.generated.h"
+
+class FDynamicTexture2DArrayModule : public IModuleInterface
+{
+public:
+
+	/** IModuleInterface implementation */
+	virtual void StartupModule() override;
+	virtual void ShutdownModule() override;
+};
 
 class FDynamicTexture2DArrayResource;
 /**
@@ -17,42 +27,36 @@ UCLASS(HideCategories = Object, MinimalAPI, BlueprintType)
 class UDynamicTexture2DArray : public UTexture
 {
 	GENERATED_UCLASS_BODY()
-	friend class UDynamicTexture2DArrayFactory;
-	friend class UDynamicTexture2DArrayComponent;
-	friend class UHbbRuntimeBPFunctionLibrary;
-
 public:
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
-	HBBRUNTIMEPLUGINS_API virtual void SetSourceTextures(TArray<TSoftObjectPtr<UTexture2D>>NewSourceTextures);
+	DYNAMICTEXTURE2DARRAY_API virtual void SetSourceTextures(TArray<TSoftObjectPtr<UTexture2D>>NewSourceTextures);
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
-	HBBRUNTIMEPLUGINS_API virtual void SetSourceTexture(TSoftObjectPtr<UTexture2D>NewSourceTexture , int32 index );
+	DYNAMICTEXTURE2DARRAY_API virtual void SetSourceTexture(TSoftObjectPtr<UTexture2D>NewSourceTexture , int32 index );
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray") 
-	HBBRUNTIMEPLUGINS_API virtual void UpdateResource();
+	DYNAMICTEXTURE2DARRAY_API virtual void UpdateResource()override;
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
-	HBBRUNTIMEPLUGINS_API virtual void UpdateResourceWithIndex(int32 updateTextureIndex);
+	DYNAMICTEXTURE2DARRAY_API virtual void UpdateResourceWithIndex(int32 updateTextureIndex);
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
-	HBBRUNTIMEPLUGINS_API virtual void ForceUpdateResource();
+	DYNAMICTEXTURE2DARRAY_API virtual void ForceUpdateResource();
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
-	HBBRUNTIMEPLUGINS_API void UpdateFromSourceTextures(int32 index);
+	DYNAMICTEXTURE2DARRAY_API void UpdateFromSourceTextures(int32 index);
 
-	HBBRUNTIMEPLUGINS_API virtual EMaterialValueType GetMaterialType() const  { return MCT_Texture2DArray; }
-	HBBRUNTIMEPLUGINS_API const EPixelFormat GetPixelFormat() const {return PixelFormat;}
+	DYNAMICTEXTURE2DARRAY_API virtual EMaterialValueType GetMaterialType() const override { return MCT_Texture2DArray; }
+	DYNAMICTEXTURE2DARRAY_API const EPixelFormat GetPixelFormat() const {return PixelFormat;}
 	
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
-	HBBRUNTIMEPLUGINS_API const int32 GetSizeX() const {return TextureSize;}
+	DYNAMICTEXTURE2DARRAY_API const int32 GetSizeX() const {return TextureSize;}
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
-	HBBRUNTIMEPLUGINS_API const int32 GetNumMips() const {return (int32)NumMips;}
+	DYNAMICTEXTURE2DARRAY_API const int32 GetNumMips() const {return (int32)NumMips;}
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
-	HBBRUNTIMEPLUGINS_API const int32 GetNumSlices() const {return (int32)NumSlices;}
+	DYNAMICTEXTURE2DARRAY_API const int32 GetNumSlices() const {return (int32)NumSlices;}
 
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray", meta=( WorldContext="WorldContextObject"))
 	static class UDynamicTexture2DArray* CreateDynamicTexture2DArray(UObject* WorldContextObject ,TArray<UTexture2D*>Texture2Ds);
 
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray", meta=( WorldContext="WorldContextObject",ToolTip="Create a DynamicTexture2DArray and add a white texture."))
 	static class UDynamicTexture2DArray* CreateDynamicTexture2DArrayDefault(UObject* WorldContextObject);
-	
-	HBBRUNTIMEPLUGINS_API virtual void Serialize(FArchive& Ar) override;
-	
+
 protected:
 	virtual FTextureResource* CreateResource();
 	void UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList, int32 index);
@@ -61,13 +65,9 @@ protected:
 private:
 	bool bForceUpdate ;
 	EPixelFormat PixelFormat;
-	UPROPERTY()
 	TArray<TSoftObjectPtr<UTexture2D>>SourceTextures;
-	UPROPERTY()
 	int32 TextureSize;
-	UPROPERTY()
 	uint32 NumMips;
-	UPROPERTY()
 	uint32 NumSlices;
 };
 
@@ -104,7 +104,7 @@ public:
 	}
 	
 private:
-	UDynamicTexture2DArray* Owner;
+	TWeakObjectPtr<UDynamicTexture2DArray> Owner;
 	uint32 SizeXY;
 	EPixelFormat Format;
 	uint32 NumMips;

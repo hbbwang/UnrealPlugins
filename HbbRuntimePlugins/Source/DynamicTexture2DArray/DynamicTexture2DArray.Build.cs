@@ -2,9 +2,9 @@
 
 using UnrealBuildTool;
 
-public class HbbRuntimePlugins : ModuleRules
+public class DynamicTexture2DArray : ModuleRules
 {
-	public HbbRuntimePlugins(ReadOnlyTargetRules Target) : base(Target)
+	public DynamicTexture2DArray(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		
@@ -43,7 +43,7 @@ public class HbbRuntimePlugins : ModuleRules
 				"InputCore",
 				"ImageCore",
 				"AssetRegistry",
-				"DynamicTexture2DArray",
+				
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);
