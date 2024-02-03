@@ -390,18 +390,18 @@ void UDynamicTexture2DArray::UpdateFromSourceTextures_RenderThread(FRHICommandLi
 
 	RHICmdList.SubmitCommandsAndFlushGPU();
 	
-	// Async(EAsyncExecution::TaskGraphMainThread, [this]()
-	// {
-	// 	for(auto& i : SourceTextures)
-	// 	{
-	// 		if(i)
-	// 		{
-	// 			i->NeverStream = 0;
-	// 			i->UpdateResource();
-	// 		}
-	// 	}
-	// 	SourceTextures.Empty(); 
-	// });
+	Async(EAsyncExecution::TaskGraphMainThread, [this]()
+	{
+		for(auto& i : SourceTextures)
+		{
+			if(i)
+			{
+				i->NeverStream = 0;
+				i->UpdateResource();
+			}
+		}
+		SourceTextures.Empty(); 
+	});
 }
 
 void UDynamicTexture2DArray::UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList,TArray<FTexture*> FTextures)
@@ -446,18 +446,18 @@ void UDynamicTexture2DArray::UpdateFromSourceTextures_RenderThread(FRHICommandLi
 	}
 
 	RHICmdList.SubmitCommandsAndFlushGPU();
-	// Async(EAsyncExecution::TaskGraphMainThread, [this]()
-	// {
-	// 	for(auto& i : SourceTextures)
-	// 	{
-	// 		if(i)
-	// 		{
-	// 			i->NeverStream = 0;
-	// 			i->UpdateResource();
-	// 		}
-	// 	}
-	// 	SourceTextures.Empty();
-	// });
+	Async(EAsyncExecution::TaskGraphMainThread, [this]()
+	{
+		for(auto& i : SourceTextures)
+		{
+			if(i)
+			{
+				i->NeverStream = 0;
+				i->UpdateResource();
+			}
+		}
+		SourceTextures.Empty();
+	});
 }
 
 FDynamicTexture2DArrayResource::FDynamicTexture2DArrayResource(UDynamicTexture2DArray* InOwner , uint32 InSizeXY, EPixelFormat InFormat, uint32 InNumMips,
