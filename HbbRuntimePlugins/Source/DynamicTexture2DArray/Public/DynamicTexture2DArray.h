@@ -33,7 +33,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
 	DYNAMICTEXTURE2DARRAY_API virtual void SetSourceTexture(TSoftObjectPtr<UTexture2D>NewSourceTexture , int32 index );
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray") 
-	DYNAMICTEXTURE2DARRAY_API virtual void UpdateResource()override;
+	DYNAMICTEXTURE2DARRAY_API virtual void UpdateResource();
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
 	DYNAMICTEXTURE2DARRAY_API virtual void UpdateResourceWithIndex(int32 updateTextureIndex);
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
@@ -51,8 +51,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
 	DYNAMICTEXTURE2DARRAY_API const int32 GetNumSlices() const {return (int32)NumSlices;}
 
+	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
+	TArray<TSoftObjectPtr<UTexture2D>> GetValidTexture(TArray<TSoftObjectPtr<UTexture2D>>& NewSourceTextures);
+
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray", meta=( WorldContext="WorldContextObject"))
-	static class UDynamicTexture2DArray* CreateDynamicTexture2DArray(UObject* WorldContextObject ,TArray<UTexture2D*>Texture2Ds);
+	static class UDynamicTexture2DArray* CreateDynamicTexture2DArray(UObject* WorldContextObject ,TArray<TSoftObjectPtr<UTexture2D>>Texture2Ds);
 
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray", meta=( WorldContext="WorldContextObject",ToolTip="Create a DynamicTexture2DArray and add a white texture."))
 	static class UDynamicTexture2DArray* CreateDynamicTexture2DArrayDefault(UObject* WorldContextObject);
@@ -104,7 +107,7 @@ public:
 	}
 	
 private:
-	TWeakObjectPtr<UDynamicTexture2DArray> Owner;
+	UDynamicTexture2DArray* Owner;
 	uint32 SizeXY;
 	EPixelFormat Format;
 	uint32 NumMips;

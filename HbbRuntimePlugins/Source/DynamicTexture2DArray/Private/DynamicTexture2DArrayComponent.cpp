@@ -44,12 +44,12 @@ void UDynamicTexture2DArrayComponent::UpdateSourceTextures(TArray<TSoftObjectPtr
 		for (int32  i = 0 ; i<newArraySize;i++ )
 		{
 			UTexture2D * tex = NewSourceTextures[i].Get();
+			if(tex == nullptr)
+			{
+				tex = NewSourceTextures[i].LoadSynchronous();
+			}
 			if(i>0)
 			{
-				if(tex == nullptr)
-				{
-					tex = NewSourceTextures[i].LoadSynchronous();
-				}
 				auto currentPlatformData = tex->GetPlatformData();
 				//纹理格式不一致,不允许在一起
 				if(firstPlatformData)

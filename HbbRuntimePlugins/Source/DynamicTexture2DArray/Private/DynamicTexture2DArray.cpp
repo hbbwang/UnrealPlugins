@@ -52,10 +52,9 @@ void UDynamicTexture2DArray::SetSourceTextures(TArray<TSoftObjectPtr<UTexture2D>
 			}
 			if(index == 0)
 			{
-				TextureSize = texObject->GetSizeX(); 
-				PixelFormat = texObject->GetPixelFormat();
-				NumMips = texObject->GetNumMips();
-				NumSlices = texObject->GetResource()->TextureRHI->GetDesc().ArraySize;
+				TextureSize = texObject->GetPlatformData()->SizeX; 
+				PixelFormat = texObject->GetPlatformData()->PixelFormat;
+				NumMips = texObject->GetPlatformData()->Mips.Num();
 				SRGB = texObject->SRGB;
 			}
 			else
@@ -63,7 +62,6 @@ void UDynamicTexture2DArray::SetSourceTextures(TArray<TSoftObjectPtr<UTexture2D>
 				if(TextureSize != texObject->GetSizeX() 
 				|| PixelFormat != texObject->GetPixelFormat()
 				|| NumMips != texObject->GetNumMips()
-				|| NumSlices != texObject->GetResource()->TextureRHI->GetDesc().ArraySize
 				|| SRGB != texObject->SRGB
 				)
 				{
@@ -78,7 +76,8 @@ void UDynamicTexture2DArray::SetSourceTextures(TArray<TSoftObjectPtr<UTexture2D>
 			}
 			index ++;
 		}
-		UpdateResourceWithIndex(-1);
+		NumSlices = SourceTextures.Num();
+		UpdateResource();
 	}
 }
 
@@ -102,7 +101,6 @@ void UDynamicTexture2DArray::SetSourceTexture(TSoftObjectPtr<UTexture2D> NewSour
 			if(TextureSize != texObject->GetSizeX() 
 				|| PixelFormat != texObject->GetPixelFormat()
 				|| NumMips != texObject->GetNumMips()
-				|| NumSlices != texObject->GetResource()->TextureRHI->GetDesc().ArraySize
 				|| SRGB != texObject->SRGB
 				)
 			{
@@ -119,8 +117,73 @@ void UDynamicTexture2DArray::SetSourceTexture(TSoftObjectPtr<UTexture2D> NewSour
 	}
 }
 
+TArray<TSoftObjectPtr<UTexture2D>> UDynamicTexture2DArray::GetValidTexture(
+	TArray<TSoftObjectPtr<UTexture2D>>& NewSourceTextures)
+{
+	const auto newArraySize = NewSourceTextures.Num();
+	if(newArraySize>0)
+	{
+		TArray<TSoftObjectPtr<UTexture2D>> validTextures;
+		validTextures.Reserve(newArraySize);
+		auto firstTemplate = NewSourceTextures[0].Get();
+		if(firstTemplate == nullptr)
+		{
+			firstTemplate = NewSourceTextures[0].LoadSynchronous();
+		}
+		auto firstPlatformData = firstTemplate->GetPlatformData();
+		for (int32  i = 0 ; i<newArraySize;i++ )
+		{
+			UTexture2D * tex = NewSourceTextures[i].Get();
+			if(tex == nullptr)
+			{
+				tex = NewSourceTextures[i].LoadSynchronous();
+			}
+			if(i>0)
+			{
+				auto currentPlatformData = tex->GetPlatformData();
+				//纹理格式不一致,不允许在一起
+				if(firstPlatformData)
+				{
+					if(tex->GetMaterialType() != MCT_Texture2D )
+					{
+						UE_LOG(LogTemp, Warning, TEXT("%s:需要添加到DynamicTexture2DArray的纹理类型不是一张Texture2D,请确认纹理类型无误,这张纹理是:%s")
+							, *this->GetName(),  *tex->GetPathName());
+						continue;
+					}
+					else if(firstPlatformData->SizeX != currentPlatformData->SizeX ||	firstPlatformData->SizeY != currentPlatformData->SizeY)
+					{
+						UE_LOG(LogTemp, Warning, TEXT("%s:纹理的分辨率不一致!无法添加进DynamicTexture2DArray,指定纹理大小是%d,%d,但是当前纹理大小是%d,%d,这张纹理是:%s")
+							, *this->GetName() , firstPlatformData->SizeX , firstPlatformData->SizeY ,currentPlatformData->SizeX , currentPlatformData->SizeY,  *tex->GetPathName());
+						continue;
+					}
+					else if(firstPlatformData->PixelFormat != currentPlatformData->PixelFormat)
+					{
+						UE_LOG(LogTemp, Warning, TEXT("%s:纹理的格式(PixelFormat)不一致!无法添加进DynamicTexture2DArray,指定格式是%s,但是当前纹理是%s,(请查看一下纹理的压缩格式或者是否勾选了Compress without alpha)这张纹理是:%s")
+							, *this->GetName() , GPixelFormats[firstPlatformData->PixelFormat].Name , GPixelFormats[currentPlatformData->PixelFormat].Name, *tex->GetPathName());
+						continue;
+					}
+					else if(firstTemplate->GetNumMips() != tex->GetNumMips() )
+					{
+						UE_LOG(LogTemp, Warning, TEXT("%s:纹理的Mip层数不一致!添加到DynamicTexture2DArray失败,指定Mip层数是%d,但是当前Mip层数是%d,这张纹理是:%s")
+							, *this->GetName() , firstTemplate->GetNumMips() , tex->GetNumMips() , *tex->GetPathName());
+						continue;
+					}
+				}
+			}
+			if(tex->NeverStream == 0)
+			{
+				tex->NeverStream = 1;
+				tex->UpdateResource();
+			}
+			validTextures.Add(tex);
+		}
+		return validTextures;
+	}
+	return TArray<TSoftObjectPtr<UTexture2D>>();
+}
+
 UDynamicTexture2DArray* UDynamicTexture2DArray::CreateDynamicTexture2DArray(UObject* WorldContextObject,
-	TArray<UTexture2D*> Texture2Ds)
+                                                                            TArray<TSoftObjectPtr<UTexture2D>> Texture2Ds)
 {
 	if(Texture2Ds.Num()>0)
 	{
@@ -130,21 +193,27 @@ UDynamicTexture2DArray* UDynamicTexture2DArray::CreateDynamicTexture2DArray(UObj
 			UE_LOG(LogTemp, Error, TEXT("[CreateDynamicTexture2DArray] 错误！ Owner 所有者为空! 可能会导致UDynamicTexture2DArray无法被卸载，常驻内存中。"));
 			WorldContextObject = GetTransientPackage();
 		}
-		newDT2DA = NewObject<UDynamicTexture2DArray>(WorldContextObject); 
-		TArray<TSoftObjectPtr<UTexture2D>> softTexs;
-		softTexs.Reserve(Texture2Ds.Num());
-		for(auto& i: Texture2Ds)
+		newDT2DA = NewObject<UDynamicTexture2DArray>(WorldContextObject);
+		newDT2DA->SourceTextures = newDT2DA->GetValidTexture(Texture2Ds);
+		if(newDT2DA->SourceTextures.Num()>0)
 		{
-			softTexs.Add(i);
+			newDT2DA->SRGB = newDT2DA->SourceTextures[0]->SRGB;
+			newDT2DA->TextureSize = newDT2DA->SourceTextures[0]->GetSizeX();
+			newDT2DA->PixelFormat = newDT2DA->SourceTextures[0]->GetPixelFormat();
+			newDT2DA->NumMips =newDT2DA->SourceTextures[0]->GetNumMips();
+			newDT2DA->NumSlices = newDT2DA->SourceTextures.Num();
+			newDT2DA->UpdateResource();
+			ENQUEUE_RENDER_COMMAND(CreateDynamicTexture2DArray)(
+			[newDT2DA](FRHICommandListImmediate& RHICmdList)
+			{
+				newDT2DA->UpdateFromSourceTextures_RenderThread(RHICmdList,-1);
+			});
+			return newDT2DA;
 		}
-		newDT2DA->SetSourceTextures(softTexs);
-	
-		ENQUEUE_RENDER_COMMAND(CreateDynamicTexture2DArray)(
-		[newDT2DA](FRHICommandListImmediate& RHICmdList)
+		else
 		{
-			newDT2DA->UpdateFromSourceTextures_RenderThread(RHICmdList,{GWhiteTexture});
-		});
-		return newDT2DA;
+			return CreateDynamicTexture2DArrayDefault(WorldContextObject);
+		}
 	}
 	else
 	{
@@ -240,16 +309,15 @@ void UDynamicTexture2DArray::ForceUpdateResource()
 void UDynamicTexture2DArray::UpdateFromSourceTextures(int32 index)
 {
 	ENQUEUE_RENDER_COMMAND(UpdateFromSourceTextures)(
-	[this,index](FRHICommandListImmediate& RHICmdList)
-	{
-		UpdateFromSourceTextures_RenderThread(RHICmdList,index);
-	});
+[this,index](FRHICommandListImmediate& RHICmdList)
+		{
+			UpdateFromSourceTextures_RenderThread(RHICmdList,index);
+		});
 }
 
 void UDynamicTexture2DArray::UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList, int32 index)
 {
 	check(IsInRenderingThread());
-	
 	if(this->GetResource() == nullptr
 	|| this->GetResource()->TextureRHI == nullptr
 	|| SourceTextures.Num() <= 0)
@@ -319,18 +387,21 @@ void UDynamicTexture2DArray::UpdateFromSourceTextures_RenderThread(FRHICommandLi
 			}
 		}
 	}
-	Async(EAsyncExecution::TaskGraphMainThread, [this]()
-	{
-		for(auto& i : SourceTextures)
-		{
-			if(i)
-			{
-				i->NeverStream = 0;
-				i->UpdateResource();
-			}
-		}
-		SourceTextures.Empty(); 
-	});
+
+	RHICmdList.SubmitCommandsAndFlushGPU();
+	
+	// Async(EAsyncExecution::TaskGraphMainThread, [this]()
+	// {
+	// 	for(auto& i : SourceTextures)
+	// 	{
+	// 		if(i)
+	// 		{
+	// 			i->NeverStream = 0;
+	// 			i->UpdateResource();
+	// 		}
+	// 	}
+	// 	SourceTextures.Empty(); 
+	// });
 }
 
 void UDynamicTexture2DArray::UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList,TArray<FTexture*> FTextures)
@@ -373,18 +444,20 @@ void UDynamicTexture2DArray::UpdateFromSourceTextures_RenderThread(FRHICommandLi
 			}
 		}
 	}
-	Async(EAsyncExecution::TaskGraphMainThread, [this]()
-	{
-		for(auto& i : SourceTextures)
-		{
-			if(i)
-			{
-				i->NeverStream = 0;
-				i->UpdateResource();
-			}
-		}
-		SourceTextures.Empty();
-	});
+
+	RHICmdList.SubmitCommandsAndFlushGPU();
+	// Async(EAsyncExecution::TaskGraphMainThread, [this]()
+	// {
+	// 	for(auto& i : SourceTextures)
+	// 	{
+	// 		if(i)
+	// 		{
+	// 			i->NeverStream = 0;
+	// 			i->UpdateResource();
+	// 		}
+	// 	}
+	// 	SourceTextures.Empty();
+	// });
 }
 
 FDynamicTexture2DArrayResource::FDynamicTexture2DArrayResource(UDynamicTexture2DArray* InOwner , uint32 InSizeXY, EPixelFormat InFormat, uint32 InNumMips,
@@ -409,11 +482,11 @@ void FDynamicTexture2DArrayResource::InitRHI(FRHICommandListBase& RHICmdList)
 	FRHITextureCreateDesc Desc =
 		FRHITextureCreateDesc::Create2DArray(TEXT("FDynamicTexture2DArrayResource"),SizeXY,SizeXY,NumSlices,Format)
 	.SetNumMips(NumMips)
-	.SetFlags((bSRGB ? ETextureCreateFlags::SRGB : ETextureCreateFlags::None)  | ETextureCreateFlags::OfflineProcessed);
+	.SetFlags((bSRGB ? ETextureCreateFlags::SRGB : ETextureCreateFlags::None)  | ETextureCreateFlags::OfflineProcessed | ETextureCreateFlags::ShaderResource);
 	
 	TextureRHI = RHICreateTexture(Desc);
 
-	if (Owner.IsValid())
+	if (Owner)
 	{
 		RHIBindDebugLabelName(TextureRHI, *Owner->GetName());
 		RHIUpdateTextureReference(Owner->TextureReference.TextureReferenceRHI, TextureRHI);
