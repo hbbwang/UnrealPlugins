@@ -16,8 +16,9 @@ void UDynamicTexture2DArrayComponent::BeginPlay()
 	// ...
 	if(SourceTextures.Num()>0 && TextureArray==nullptr)
 	{
-		TextureArray = NewObject<UDynamicTexture2DArray>(this,NAME_None, RF_Public|RF_Transient);
-		UpdateTextureArrayFromSourceTextures();
+		TextureArray = UDynamicTexture2DArray::CreateDynamicTexture2DArray(this,{});
+		
+		//UpdateTextureArrayFromSourceTextures(); 
 	}
 }
 
@@ -27,11 +28,10 @@ void UDynamicTexture2DArrayComponent::BeginPlay()
 // 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 // }
 
-UE_DISABLE_OPTIMIZATION
 void UDynamicTexture2DArrayComponent::UpdateSourceTextures(TArray<TSoftObjectPtr<UTexture2D>> NewSourceTextures)
 {
 	const auto newArraySize = NewSourceTextures.Num();
-	if(newArraySize>0)
+	if(newArraySize>0 && TextureArray)
 	{
 		TArray<TSoftObjectPtr<UTexture2D>> validTextures;
 		validTextures.Reserve(newArraySize);
@@ -88,10 +88,10 @@ void UDynamicTexture2DArrayComponent::UpdateSourceTextures(TArray<TSoftObjectPtr
 		TextureArray->SetSourceTextures(SourceTextures);
 	}
 }
-UE_ENABLE_OPTIMIZATION
+
 void UDynamicTexture2DArrayComponent::UpdateSourceTexture(TSoftObjectPtr<UTexture2D> NewSourceTexture, int32 index )
 {
-	if(SourceTextures.Num()>0)
+	if(SourceTextures.Num()>0 && TextureArray)
 	{
 		if(SourceTextures.IsValidIndex(index))
 		{

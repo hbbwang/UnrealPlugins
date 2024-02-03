@@ -3,24 +3,27 @@
 
 #include "DynamicTexture2DArray.h"
 #include "DynamicTexture2DArrayComponent.h"
+#include "EngineUtils.h"
 #include "RenderGraphBuilder.h"
 
+#include UE_INLINE_GENERATED_CPP_BY_NAME(DynamicTexture2DArray)
+
+#define LOCTEXT_NAMESPACE "UDynamicTexture2DArray"
 
 UDynamicTexture2DArray::UDynamicTexture2DArray(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	Comp = (UDynamicTexture2DArrayComponent*)GetOuter();
-
-	TextureSize = 2; 
-	PixelFormat = PF_DXT1;
-	NumMips = 1;
+	TextureSize = 2;   
+	PixelFormat = PF_DXT1;   
+	NumMips = 1; 
 	NumSlices = 1;
 	SRGB = true;
+	bForceUpdate = false;
 }
 
 void UDynamicTexture2DArray::SetSourceTextures(TArray<TSoftObjectPtr<UTexture2D>>NewSourceTextures)
 {
-	if(NewSourceTextures.Num()>0)
+	if(NewSourceTextures.Num()>0) 
 	{
 		SourceTextures.Empty();
 		SourceTextures.Reserve(NewSourceTextures.Num());
@@ -45,7 +48,7 @@ void UDynamicTexture2DArray::SetSourceTextures(TArray<TSoftObjectPtr<UTexture2D>
 				SRGB = texObject->SRGB;
 			}
 			else
-			{
+			{ 
 				if(TextureSize != texObject->GetSizeX() 
 				|| PixelFormat != texObject->GetPixelFormat()
 				|| NumMips != texObject->GetNumMips()
@@ -64,7 +67,7 @@ void UDynamicTexture2DArray::SetSourceTextures(TArray<TSoftObjectPtr<UTexture2D>
 			}
 			index ++;
 		}
-		UpdateResource(-1);
+		UpdateResourceWithIndex(-1);
 	}
 }
 
@@ -100,48 +103,92 @@ void UDynamicTexture2DArray::SetSourceTexture(TSoftObjectPtr<UTexture2D> NewSour
 				texObject->NeverStream = 1;
 				texObject->UpdateResource();
 			}
-			UpdateResource(index);
+			UpdateResourceWithIndex(index); 
 		}
 	}
 }
 
+UDynamicTexture2DArray* UDynamicTexture2DArray::CreateDynamicTexture2DArray(UObject* WorldContextObject,
+	TArray<UTexture2D*> Texture2Ds)
+{
+	if(Texture2Ds.Num()>0)
+	{
+		UDynamicTexture2DArray* newDT2DA = NULL;
+		if(!WorldContextObject)
+		{
+			UE_LOG(LogTemp, Error, TEXT("[CreateDynamicTexture2DArray] 错误！ Owner 所有者为空! 可能会导致UDynamicTexture2DArray无法被卸载，常驻内存中。"));
+			WorldContextObject = GetTransientPackage();
+		}
+		newDT2DA = NewObject<UDynamicTexture2DArray>(WorldContextObject); 
+		TArray<TSoftObjectPtr<UTexture2D>> softTexs;
+		softTexs.Reserve(Texture2Ds.Num());
+		for(auto& i: Texture2Ds)
+		{
+			softTexs.Add(i);
+		}
+		newDT2DA->SetSourceTextures(softTexs);
+	
+		ENQUEUE_RENDER_COMMAND(UpdateDynamicTexture2DArray)(
+		[newDT2DA](FRHICommandListImmediate& RHICmdList)
+		{
+			newDT2DA->UpdateFromSourceTextures_RenderThread(RHICmdList,{GWhiteTexture});
+		});
+		return newDT2DA;
+	}
+	else
+	{
+		return CreateDynamicTexture2DArrayDefault(WorldContextObject);
+	}
+}
+
+UDynamicTexture2DArray* UDynamicTexture2DArray::CreateDynamicTexture2DArrayDefault(UObject* WorldContextObject)
+{
+	UDynamicTexture2DArray* newDT2DA = NULL;
+	if(!WorldContextObject)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[CreateDynamicTexture2DArray] 错误！ Owner 所有者为空! 可能会导致UDynamicTexture2DArray无法被卸载，常驻内存中。"));
+		WorldContextObject = GetTransientPackage();
+	}
+	newDT2DA = NewObject<UDynamicTexture2DArray>(WorldContextObject);
+	auto systemTexRHIDesc = GWhiteTexture->GetTextureRHI()->GetDesc();
+	newDT2DA->SRGB = GWhiteTexture->bSRGB;
+	newDT2DA->TextureSize = systemTexRHIDesc.GetSize().X;
+	newDT2DA->PixelFormat = systemTexRHIDesc.Format;
+	newDT2DA->NumMips = systemTexRHIDesc.NumMips;
+	newDT2DA->NumSlices = systemTexRHIDesc.ArraySize; 
+	newDT2DA->UpdateResource();
+	ENQUEUE_RENDER_COMMAND(UpdateDynamicTexture2DArray)(
+	[newDT2DA](FRHICommandListImmediate& RHICmdList)
+	{
+		newDT2DA->UpdateFromSourceTextures_RenderThread(RHICmdList,{GWhiteTexture});
+	});
+	return newDT2DA;
+}
+
+void UDynamicTexture2DArray::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+}
+
 FTextureResource* UDynamicTexture2DArray::CreateResource()
 {
-	//if(SourceTextures.Num()>0&&SourceTextures[0])
+	if(GetResource() != nullptr)
 	{
-		//TextureSize = SourceTextures[0]->GetSizeX();
-		//PixelFormat = SourceTextures[0]->GetPixelFormat();
-		if(GetResource() != nullptr)
+		auto currentRes = static_cast<FDynamicTexture2DArrayResource*>(GetResource());
+		if(currentRes->GetSizeX() == TextureSize
+			&& currentRes->GetPixelFormat() == PixelFormat
+			&& currentRes->GetNumMips() == NumMips
+			&& currentRes->GetNumSlices() == NumSlices
+			&& currentRes->bSRGB == SRGB
+			)
 		{
-			auto currentRes = static_cast<FDynamicTexture2DArrayResource*>(GetResource());
-			if(currentRes->GetSizeX() == TextureSize
-				&& currentRes->GetPixelFormat() == PixelFormat
-				&& currentRes->GetNumMips() == NumMips
-				&& currentRes->GetNumSlices() == NumSlices
-				&& currentRes->bSRGB == SRGB
-				)
-			{
-				return GetResource();
-			}
+			return GetResource();
 		}
-		ReleaseResource();
-		auto newResource = new FDynamicTexture2DArrayResource(this,TextureSize,PixelFormat,NumMips,NumSlices,SRGB);
-		SetResource(newResource);
-		return newResource;
 	}
-	// else
-	// {
-	// 	if(GetResource() != nullptr)
-	// 	{
-	// 		return GetResource();
-	// 	}
-	// 	else
-	// 	{
-	// 		ReleaseResource();
-	// 		return nullptr;
-	// 	}
-	// }
-	return nullptr;
+	ReleaseResource();
+	auto newResource = new FDynamicTexture2DArrayResource(this,TextureSize,PixelFormat,NumMips,NumSlices,SRGB);
+	SetResource(newResource);
+	return newResource;
 }
 
 void UDynamicTexture2DArray::UpdateResource()
@@ -161,7 +208,7 @@ void UDynamicTexture2DArray::UpdateResource()
 	}
 }
 
-void UDynamicTexture2DArray::UpdateResource(int32 updateTextureIndex)
+void UDynamicTexture2DArray::UpdateResourceWithIndex(int32 updateTextureIndex)
 {
 	auto currentRes = static_cast<FDynamicTexture2DArrayResource*>(GetResource());
 	if(GetResource() == nullptr
@@ -181,7 +228,7 @@ void UDynamicTexture2DArray::UpdateResource(int32 updateTextureIndex)
 void UDynamicTexture2DArray::ForceUpdateResource()
 {
 	bForceUpdate = true;
-	UpdateResource();
+	UpdateResource(); 
 }
 
 void UDynamicTexture2DArray::UpdateFromSourceTextures(int32 index)
@@ -266,17 +313,17 @@ void UDynamicTexture2DArray::UpdateFromSourceTextures_RenderThread(FRHICommandLi
 			}
 		}
 	}
-	Async(EAsyncExecution::Thread, [this]()
+	Async(EAsyncExecution::TaskGraphMainThread, [this]()
 	{
-		// for(auto& i : SourceTextures)
-		// {
-		// 	if(i)
-		// 	{
-		// 		i->NeverStream = 0;
-		// 		i->UpdateResource();
-		// 	}
-		// }
-		SourceTextures.Empty();
+		for(auto& i : SourceTextures)
+		{
+			if(i)
+			{
+				i->NeverStream = 0;
+				i->UpdateResource();
+			}
+		}
+		SourceTextures.Empty(); 
 	});
 }
 
@@ -320,16 +367,16 @@ void UDynamicTexture2DArray::UpdateFromSourceTextures_RenderThread(FRHICommandLi
 			}
 		}
 	}
-	Async(EAsyncExecution::Thread, [this]()
+	Async(EAsyncExecution::TaskGraphMainThread, [this]()
 	{
-		// for(auto& i : SourceTextures)
-		// {
-		// 	if(i)
-		// 	{
-		// 		i->NeverStream = 0;
-		// 		i->UpdateResource();
-		// 	}
-		// }
+		for(auto& i : SourceTextures)
+		{
+			if(i)
+			{
+				i->NeverStream = 0;
+				i->UpdateResource();
+			}
+		}
 		SourceTextures.Empty();
 	});
 }
@@ -384,3 +431,5 @@ void FDynamicTexture2DArrayResource::ReleaseRHI()
 	FTextureResource::ReleaseRHI();
 	
 }
+
+#undef LOCTEXT_NAMESPACE
