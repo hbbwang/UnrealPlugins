@@ -22,6 +22,16 @@ class FDynamicTexture2DArrayResource;
  * 
  */
 
+struct FDT2DArraySource
+{
+	//新纹理对象
+	TSoftObjectPtr<UTexture2D> Texture;
+	//需要更新到哪个Index
+	int32 Index;
+	//
+	bool bExec = false;
+};
+
 UCLASS(HideCategories = Object, MinimalAPI, BlueprintType)
 //UCLASS(Abstract, BlueprintType) 
 class UDynamicTexture2DArray : public UTexture
@@ -35,11 +45,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray") 
 	DYNAMICTEXTURE2DARRAY_API virtual void UpdateResource();
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
-	DYNAMICTEXTURE2DARRAY_API virtual void UpdateResourceWithIndex(int32 updateTextureIndex);
-	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
 	DYNAMICTEXTURE2DARRAY_API virtual void ForceUpdateResource();
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
-	DYNAMICTEXTURE2DARRAY_API void UpdateFromSourceTextures(int32 index);
+	DYNAMICTEXTURE2DARRAY_API void UpdateFromSourceTextures();
 
 	DYNAMICTEXTURE2DARRAY_API virtual EMaterialValueType GetMaterialType() const override { return MCT_Texture2DArray; }
 	DYNAMICTEXTURE2DARRAY_API const EPixelFormat GetPixelFormat() const {return PixelFormat;}
@@ -52,7 +60,7 @@ public:
 	DYNAMICTEXTURE2DARRAY_API const int32 GetNumSlices() const {return (int32)NumSlices;}
 
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
-	TArray<TSoftObjectPtr<UTexture2D>> GetValidTexture(TArray<TSoftObjectPtr<UTexture2D>>& NewSourceTextures);
+	static TArray<TSoftObjectPtr<UTexture2D>> GetValidTexture(TArray<TSoftObjectPtr<UTexture2D>>& NewSourceTextures);
 
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray", meta=( WorldContext="WorldContextObject"))
 	static class UDynamicTexture2DArray* CreateDynamicTexture2DArray(UObject* WorldContextObject ,TArray<TSoftObjectPtr<UTexture2D>>Texture2Ds);
@@ -62,13 +70,13 @@ public:
 
 protected:
 	virtual FTextureResource* CreateResource();
-	void UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList, int32 index);
+	void UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList);
 	void UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList, TArray<FTexture*> FTextures);
 
 private:
 	bool bForceUpdate ;
 	EPixelFormat PixelFormat;
-	TArray<TSoftObjectPtr<UTexture2D>>SourceTextures;
+	TArray<FDT2DArraySource>SourceTextures;
 	int32 TextureSize;
 	uint32 NumMips;
 	uint32 NumSlices;
