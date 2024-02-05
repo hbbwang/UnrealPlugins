@@ -58,16 +58,23 @@ public:
 	DYNAMICTEXTURE2DARRAY_API const int32 GetNumMips() const {return (int32)NumMips;}
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
 	DYNAMICTEXTURE2DARRAY_API const int32 GetNumSlices() const {return (int32)NumSlices;}
-
+	//重新设置为单张黑色1x1纹理
+	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray", meta=(ToolTip="Reset to black texture."))
+	virtual void ResetToNull();
+	
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
 	static TArray<TSoftObjectPtr<UTexture2D>> GetValidTexture(TArray<TSoftObjectPtr<UTexture2D>>& NewSourceTextures);
 
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray", meta=( WorldContext="WorldContextObject"))
 	static class UDynamicTexture2DArray* CreateDynamicTexture2DArray(UObject* WorldContextObject ,TArray<TSoftObjectPtr<UTexture2D>>Texture2Ds);
-
+	
 	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray", meta=( WorldContext="WorldContextObject",ToolTip="Create a DynamicTexture2DArray and add a white texture."))
 	static class UDynamicTexture2DArray* CreateDynamicTexture2DArrayDefault(UObject* WorldContextObject);
 
+	//本来应该存在FScene里跟随场景储存Texture2DArray,但是咱们走插件流程就没办法去改引擎了,就在这里存静态数组...
+	UFUNCTION(BlueprintCallable, Category="DynamicTexture2DArray")
+	static TArray<UDynamicTexture2DArray*>GetDynamicTexture2DArrayMap();
+	
 protected:
 	virtual FTextureResource* CreateResource();
 	void UpdateFromSourceTextures_RenderThread(FRHICommandListImmediate& RHICmdList);

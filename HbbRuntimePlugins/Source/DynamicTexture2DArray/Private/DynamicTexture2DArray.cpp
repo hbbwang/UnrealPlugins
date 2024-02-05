@@ -17,8 +17,9 @@ void FDynamicTexture2DArrayModule::ShutdownModule()
 IMPLEMENT_MODULE(FDynamicTexture2DArrayModule, DynamicTexture2DArray)
 
 
-//UDynamicTexture2DArray UObject:
+static TArray<UDynamicTexture2DArray*> DynamicTexture2DArrayMap;
 
+//UDynamicTexture2DArray UObject:
 #include UE_INLINE_GENERATED_CPP_BY_NAME(DynamicTexture2DArray)
 #define LOCTEXT_NAMESPACE "UDynamicTexture2DArray"
 UDynamicTexture2DArray::UDynamicTexture2DArray(const FObjectInitializer& ObjectInitializer)
@@ -191,25 +192,7 @@ UDynamicTexture2DArray* UDynamicTexture2DArray::CreateDynamicTexture2DArray(UObj
 		if(validTexs.Num()>0)
 		{
 			newDT2DA = NewObject<UDynamicTexture2DArray>(WorldContextObject);
-			
-			// Make sure any render commands are executed, in particular things like InitRHI, or asset updates on the render thread.
-			FlushRenderingCommands();
-			
 			newDT2DA->SetSourceTextures(validTexs);
-			
-			// newDT2DA->SourceTextures = ;
-			// newDT2DA->SRGB = newDT2DA->SourceTextures[0]->SRGB;
-			// newDT2DA->TextureSize = newDT2DA->SourceTextures[0]->GetSizeX();
-			// newDT2DA->PixelFormat = newDT2DA->SourceTextures[0]->GetPixelFormat();
-			// newDT2DA->NumMips =newDT2DA->SourceTextures[0]->GetNumMips();
-			// newDT2DA->NumSlices = newDT2DA->SourceTextures.Num();
-			// newDT2DA->UpdateResource();
-
-			// ENQUEUE_RENDER_COMMAND(CreateDynamicTexture2DArray)(
-			// [newDT2DA](FRHICommandListImmediate& RHICmdList)
-			// {
-			// 	newDT2DA->UpdateFromSourceTextures_RenderThread(RHICmdList,-1);
-			// });
 			return newDT2DA;
 		}
 		else
@@ -251,6 +234,11 @@ UDynamicTexture2DArray* UDynamicTexture2DArray::CreateDynamicTexture2DArrayDefau
 	return newDT2DA;
 }
 
+TArray<UDynamicTexture2DArray*> UDynamicTexture2DArray::GetDynamicTexture2DArrayMap()
+{
+	return DynamicTexture2DArrayMap;
+}
+
 FTextureResource* UDynamicTexture2DArray::CreateResource()
 {
 	if(GetResource() != nullptr)
@@ -270,6 +258,32 @@ FTextureResource* UDynamicTexture2DArray::CreateResource()
 	auto newResource = new FDynamicTexture2DArrayResource(this,TextureSize,PixelFormat,NumMips,NumSlices,SRGB);
 	SetResource(newResource);
 	return newResource;
+}
+
+void UDynamicTexture2DArray::ResetToNull()
+{
+	auto systemTexRHIDesc = GBlackTexture->GetTextureRHI()->GetDesc();
+	SRGB = GBlackTexture->bSRGB;
+	TextureSize = systemTexRHIDesc.GetSize().X;
+	PixelFormat = systemTexRHIDesc.Format;
+	NumMips = systemTexRHIDesc.NumMips;
+	NumSlices = systemTexRHIDesc.ArraySize;
+	SourceTextures.Empty();
+	UpdateResource();
+	ENQUEUE_RENDER_COMMAND(CreateDynamicTexture2DArrayDefault)(
+	[this](FRHICommandListImmediate& RHICmdList)
+	{
+		UpdateFromSourceTextures_RenderThread(RHICmdList,{GBlackTexture});
+	});
+	
+	for(auto& i : DynamicTexture2DArrayMap)
+	{
+		if(i == this)
+		{
+			DynamicTexture2DArrayMap.Remove(i);
+			break;
+		}
+	}
 }
 
 void UDynamicTexture2DArray::UpdateResource()
@@ -367,7 +381,7 @@ void UDynamicTexture2DArray::UpdateFromSourceTextures_RenderThread(FRHICommandLi
 				SourceTextures[i].Texture->NeverStream = 0;
 				SourceTextures[i].Texture->UpdateResource();
 				SourceTextures.RemoveAt(i);
-				i = FMath::Max(0, i - 1);
+				i = i - 1;
 			}
 		}
 	});
