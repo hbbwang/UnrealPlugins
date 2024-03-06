@@ -61,17 +61,14 @@ void FHbbEditorPluginsModule::AddButton(FText ButtonName, FOnClicked onClickedFu
 	vBox->AddSlot().AutoHeight().AttachWidget(button);
 }
 // UE_DISABLE_OPTIMIZATION
-void FHbbEditorPluginsModule::AssetsBatchExport()
+void FHbbEditorPluginsModule::AssetsBatchExport(TArray<FAssetData> assets)
 {
-	FContentBrowserModule& ContentBrowserModule =FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
-	TArray<FAssetData> assets;
 	TArray<FString> assetPaths; 
 	TArray<FString> assetPackagePaths;
 	TArray<FString> assetName;
 	TArray<UObject*> assetObjects;
 	TArray<FString> assetClasses;
 	FString savePath;
-	ContentBrowserModule.Get().GetSelectedAssets(assets);
 	FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
 	assetPaths.Reserve(assets.Num());
 	assetName.Reserve(assets.Num());
@@ -254,7 +251,10 @@ void FHbbEditorPluginsModule::RegisterMenus()
 						AddButton(LOCTEXT("AssetBatchExportButtonName", "Asset Batch Export") , FOnClicked::CreateLambda(
 					[this]()
 							{
-								AssetsBatchExport();
+								TArray<FAssetData> assets;
+								FContentBrowserModule& ContentBrowserModule =FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+								ContentBrowserModule.Get().GetSelectedAssets(assets);
+								AssetsBatchExport(assets);
 								return FReply::Handled(); 
 							}),
 							FText::FromString(TEXT("(ContentBrowser选中的资产)批量导出"
@@ -297,7 +297,11 @@ void FHbbEditorPluginsModule::RegisterMenus()
 				//添加该菜单的点击回调事件
 				FUIAction(FExecuteAction::CreateLambda([this]()
 				{
-					AssetsBatchExport();
+					TArray<FAssetData> assets;
+					FContentBrowserModule& ContentBrowserModule =FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+					ContentBrowserModule.Get().GetSelectedAssets(assets);
+					AssetsBatchExport(assets);
+					AssetsBatchExport(assets);
 				})
 				));
 			}));
