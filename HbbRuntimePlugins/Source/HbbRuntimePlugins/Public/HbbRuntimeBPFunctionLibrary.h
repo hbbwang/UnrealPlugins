@@ -58,7 +58,7 @@ class HBBRUNTIMEPLUGINS_API UHbbRuntimeBPFunctionLibrary : public UBlueprintFunc
 	static void DrawMaterialtoRenderTargetWithAlpha (UObject* WorldContextObject, UTextureRenderTarget2D* TextureRenderTarget, UMaterialInterface* Material);
 
 	UFUNCTION(BlueprintCallable, Category="Hbb Editor Function", meta=(WorldContext="WorldContextObject", UnsafeDuringActorConstruction="true"))
-	static void ExportAssetFile (UObject* WorldContextObject, UObject* TextureRenderTarget, FString outputPath);
+	static void ExportAssetFile (UObject* WorldContextObject, UObject* object, FString outputPath);
 
 	UFUNCTION(BlueprintCallable, Category="Hbb Editor Function", meta=(WorldContext="WorldContextObject", UnsafeDuringActorConstruction="true"))
 	static void SetMaterialDomain (class UMaterialInstanceConstant* materialIns , TEnumAsByte<EMaterialDomain> Domain , bool bMarkDirt);
