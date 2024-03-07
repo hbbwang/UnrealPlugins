@@ -25,7 +25,7 @@ public class HbbRuntimePlugins : ModuleRules
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Core", "Renderer",
+				"Core", "Renderer","EngineAssetDefinitions", "AssetDefinition"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
@@ -45,6 +45,7 @@ public class HbbRuntimePlugins : ModuleRules
 				"AssetRegistry",
 				"DynamicTexture2DArray",
 				"Renderer",
+				"SlateCore","TextureEditor","UnrealEd"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);
